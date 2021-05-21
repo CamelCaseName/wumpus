@@ -1,20 +1,33 @@
-// wumpus.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
+#include "wumpus.h"
 
-#include <iostream>
+//console size 80*24 chars
+//create frame buffer to output directly to screen
+// data structure -> 2d vector array (scalability after compile, so i can change world size dynamically)?, use bit encoding for cell state.. 
+// or use a list of cell objects which can have multiple neighboors,so kinda like a graph but also bit encoding because efficient.
 
-int main()
-{
-    std::cout << "Hello World!\n";
+//cell state encoding:
+//the attributes are just the states added up, so one bit is one state
+//all possible states:
+//	Agent	1
+//	Breeze	2
+//	Gold	4
+//	Pit		8
+//	Stench	16
+//	Wumpus	32
+
+uint8_t world_size = 4;
+world map;
+
+void initialize_map() {
+	map.set_size(world_size);
+	uint8_t test_attributes = 16;
+	for (uint8_t i = 0; i < world_size; i++) {
+		for (uint8_t j = 0; j < world_size; j++) {
+			map.set_cell(i, j, test_attributes);
+		}
+	}
 }
 
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
+int main() {
+	initialize_map();
+}
