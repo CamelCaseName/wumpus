@@ -6,12 +6,12 @@
 
 class cell {
 public:
-	cell(uint8_t beginning_attributes) { attributes = beginning_attributes; };
+	cell(uint16_t beginning_attributes) { attributes = beginning_attributes; };
 	~cell(){};
-	uint8_t get_attributes() { return attributes; };
-	void set_attributes(uint8_t new_attributes) { attributes = new_attributes; };
+	uint16_t get_attributes() { return attributes; };
+	void set_attributes(uint16_t new_attributes) { attributes = new_attributes; };
 private:
-	uint8_t attributes = 0;
+	uint16_t attributes = 0;
 };
 
 

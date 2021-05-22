@@ -5,6 +5,7 @@
 
 #include "cell.h"
 #include <vector>
+#include <iostream>
 
 class world {
 public:
@@ -12,9 +13,9 @@ public:
 	world() {};
 	//world destructor
 	~world() {};
-	void set_size(uint8_t size);
-	void set_cell(uint8_t y, uint8_t x, uint8_t attributes);
-	uint8_t get_cell(uint8_t y, uint8_t x);
+	void set_size(uint16_t size);
+	void set_cell(uint16_t y, uint16_t x, uint16_t attributes);
+	uint16_t get_cell(uint16_t y, uint16_t x);
 
 private:
 	std::vector <std::vector <cell> > internal_map;
