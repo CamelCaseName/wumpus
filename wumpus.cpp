@@ -15,9 +15,11 @@
 //	Pit		16
 //	Stench	32
 //	Wumpus	64
+//	Visited 512
 
-uint16_t world_size = 4;
+short world_size = 4;
 world map;
+agent_local player;
 
 
 void initialize_map() {
@@ -33,20 +35,20 @@ BOOL WINAPI ConsoleHandler(DWORD ctrl_type) {
 
 void fill_map() {
 	// initialize random seed
-	srand(time(NULL));
+	srand((uint32_t)(time(NULL)));
 
 	//variables
 	bool wumpus_set = false;
 	bool gold_set = false;
 	bool max_pits_set = false;
-	uint16_t number_of_pits = 0;
+	short number_of_pits = 0;
 
 	//create player on the map at 0,0
 	map.set_cell(0, 0, 128);
 
 	//computer magic thingy
-	for (uint16_t i = 0; i < world_size; i++) {
-		for (uint16_t j = 0; j < world_size; j++) {
+	for (short i = 0; i < world_size; i++) {
+		for (short j = 0; j < world_size; j++) {
 			//get current attributes to not overwrite anything
 			//not in the starting corner
 			if (i + j > 1) {
@@ -97,7 +99,12 @@ void fill_map() {
 }
 
 void draw_map() {
-
+	for (short i = world_size; i > 0; --i) {
+		for (short j = 0; j < world_size; j++) {
+			std::cout << (int)j << "," << (int)i - 1 << ":" << (int)map.get_cell(i - 1, j) << " ";
+		}
+		std::cout << std::endl;
+	}
 }
 
 void clear_screen(char fill = ' ') {//kindly borrowed from https://stackoverflow.com/questions/5866529/how-do-we-clear-the-console-in-assembly/5866648#5866648
@@ -112,34 +119,20 @@ void clear_screen(char fill = ' ') {//kindly borrowed from https://stackoverflow
 }
 
 int main() {
+	short x, y, old_x, old_y;
 	initialize_map();
 
 	fill_map();
 
 	while (1) {
-		clear_screen();
-		if (GetKeyState('W') & 0x8000) {
-			//walk forward
-		}
-		else if (GetKeyState('A') & 0x8000) {
-			//walk left
-		}
-		else if (GetKeyState('S') & 0x8000) {
-			//walk back
-		}
-		else if (GetKeyState('D') & 0x8000) {
-			//walk right
-		}
+		Sleep(1000);
+		//clear_screen();
 		draw_map();
-	}
-
-
-#ifdef DEBUG
-	for (uint16_t i = world_size; i > 0; --i) {
-		for (uint16_t j = 0; j < world_size; j++) {
-			std::cout << (int)j << "," << (int)i - 1 << ":" << (int)map.get_cell(i - 1, j) << " ";
+		player.walk(&x, &y, &old_x, &old_y);
+		if (x != old_x || y != old_y) {
+			map.set_cell(x, y, AGENT);
+			map.set_cell(old_x, old_y, (map.get_cell(old_x, old_y) - AGENT));
 		}
-		std::cout << std::endl;
+
 	}
-#endif // !DEBUG
-		}
+}

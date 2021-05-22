@@ -13,9 +13,9 @@ public:
 	world() {};
 	//world destructor
 	~world() {};
-	void set_size(uint16_t size);
-	void set_cell(uint16_t y, uint16_t x, uint16_t attributes);
-	uint16_t get_cell(uint16_t y, uint16_t x);
+	void set_size(short size);
+	void set_cell(short y, short x, short attributes);
+	short get_cell(short y, short x);
 
 private:
 	std::vector <std::vector <cell> > internal_map;
