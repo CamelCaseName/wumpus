@@ -8,7 +8,7 @@ class agent_local : public agent_base{
 public:
 	agent_local() {};
 	~agent_local() {};
-	void walk(short* new_x, short* new_y, short* old_x, short* old_y);
+	void walk(short* new_x, short* new_y, short* old_x, short* old_y, short* world_size);
 private:
 
 };

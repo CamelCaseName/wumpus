@@ -3,7 +3,7 @@
 #define WUMPUS_H
 
 #define	AGENT	128
-#define	BREEEZE	1
+#define	BREEZE	1
 #define	GOLD	8
 #define	PIT		16
 #define	STENCH	32
