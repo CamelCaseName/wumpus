@@ -1,4 +1,4 @@
-#include "wumpus.h"
+ï»¿#include "wumpus.h"
 //#define DEBUG
 
 //console size 80*24 chars
@@ -17,12 +17,20 @@
 //	Wumpus	64
 //	Visited 512
 
-/// <announcement>
+/// <disclaimer1>
 /// I know i mixed the windows proprietary console controls and the VT100 terminal control sequences
 /// But i do't want to fix it, there is no need (this should be windows only, right?) 
-/// </announcement>
+/// </disclaimer1>
 
-short world_size = 4;
+
+/// <disclaimer2>
+/// i accidentally saved the file with unicode encoding, so now i have to replace all box drawing chars with the \x hex represenations. 
+/// LOOKS SHIT, but is necessary
+/// 
+/// or i couold change the code page *shrug*
+/// </disclaimer2>
+
+short world_size = 8, x = 0, y = 0, old_x = 0, old_y = 0; //agent position variables
 world map;
 agent_local player;
 HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -75,7 +83,7 @@ void initialize_console() {
 	SetConsoleOutputCP(437);
 
 	//window title
-	SetConsoleTitleW(TEXT("WUMPUS by Leonhard Seidel, Nr. 5467428"));
+	SetConsoleTitle(TEXT("WUMPUS by Leonhard Seidel, Nr. 5467428"));
 
 	//fullscreen window, no scrollbars
 	SetConsoleDisplayMode(console, dwFlags, &console_buffer_size);
@@ -111,20 +119,20 @@ void initialize_console() {
 	short r, g, b;
 	//printf("\x1b[38;2;255;100;0mTRUECOLOR\x1b[0m\n");
 	for (short i = 0; i < (console_buffer_size.X - 39) / 2; i++) {
-		r = sin(frequency * i + 0) * 127 + 128;
-		g = sin(frequency * i + 2) * 127 + 128;
-		b = sin(frequency * i + 4) * 127 + 128;
-		std::cout << "\x1b[38;2;" << r << ";" << g << ";" << b << "mÍ";
+		r = (short)(sin(frequency * i + 0) * 127 + 128);
+		g = (short)(sin(frequency * i + 2) * 127 + 128);
+		b = (short)(sin(frequency * i + 4) * 127 + 128);
+		std::cout << "\x1b[38;2;" << r << ";" << g << ";" << b << "m\xcd";
 	}
 	r = 128;
-	g = sin(2) * 127 + 128;
-	b = sin(4) * 127 + 128;
-	std::cout << "¹\x1b[46;30;7mWUMPUS by Leonhard Seidel, Nr. 5467428" << "\x1b[0m\x1b[38;2;" << r << ";" << g << ";" << b << "mÌ";
+	g = (short)(sin(2) * 127 + 128);
+	b = (short)(sin(4) * 127 + 128);
+	std::cout << "\xb9\x1b[46;30;7mWUMPUS by Leonhard Seidel, Nr. 5467428" << "\x1b[0m\x1b[38;2;" << r << ";" << g << ";" << b << "m\xcc";
 	for (short i = 0; i < (console_buffer_size.X - 39) / 2; i++) {
-		r = sin(frequency * i + 0) * 127 + 128;
-		g = sin(frequency * i + 2) * 127 + 128;
-		b = sin(frequency * i + 4) * 127 + 128;
-		std::cout << "\x1b[38;2;" << r << ";" << g << ";" << b << "mÍ";
+		r = (short)(sin(frequency * i + 0) * 127 + 128);
+		g = (short)(sin(frequency * i + 2) * 127 + 128);
+		b = (short)(sin(frequency * i + 4) * 127 + 128);
+		std::cout << "\x1b[38;2;" << r << ";" << g << ";" << b << "m\xcd";
 	}
 	std::cout << "\x1b[0m";
 
@@ -144,98 +152,106 @@ void draw_cell(short x, short y) {
 	std::cout << "\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
 	if (!(map.get_cell(x, y) & VISITED)) {
 		if (y == world_size - 1) {
-			std::cout << "²²²²²²²²²²²²²²²²\x1b[16D\x1b[B";
+			std::cout << "\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\x1b[16D\x1b[B";
 		}
 		else {
-			std::cout << "²²²²²²µ  Æ²²²²²²\x1b[16D\x1b[B";
+			std::cout << "\xb1\xb1\xb1\xb1\xb1\xb1\xb5  \xc6\xb1\xb1\xb1\xb1\xb1\xb1\x1b[16D\x1b[B";
 		}
 
-		std::cout << "²²            ²²\x1b[16D\x1b[B";
-		std::cout << "²²            ²²\x1b[16D\x1b[B";
+		std::cout << "\xb1\xb1            \xb1\xb1\x1b[16D\x1b[B";
+		std::cout << "\xb1\xb1            \xb1\xb1\x1b[16D\x1b[B";
 		if (x == 0) {
-			std::cout << "²²            ÐÐ\x1b[16D\x1b[B";
-			std::cout << "²²            ÒÒ\x1b[16D\x1b[B";
+			std::cout << "\xb1\xb1            \xd0\xd0\x1b[16D\x1b[B";
+			std::cout << "\xb1\xb1            \xd2\xd2\x1b[16D\x1b[B";
 		}
 		else {
-			std::cout << "ÐÐ      ";
+			std::cout << "\xd0\xd0      ";
 			if (x == world_size - 1) {
-				std::cout << "      ²²\x1b[16D\x1b[B";
-				std::cout << "ÒÒ            ²²\x1b[16D\x1b[B";
+				std::cout << "      \xb1\xb1\x1b[16D\x1b[B";
+				std::cout << "\xd2\xd2            \xb1\xb1\x1b[16D\x1b[B";
 			}
 			else {
-				std::cout << "      ÐÐ\x1b[16D\x1b[B";
-				std::cout << "ÒÒ            ÒÒ\x1b[16D\x1b[B";
+				std::cout << "      \xd0\xd0\x1b[16D\x1b[B";
+				std::cout << "\xd2\xd2            \xd2\xd2\x1b[16D\x1b[B";
 			}
 		}
-		std::cout << "²²            ²²\x1b[16D\x1b[B";
-		std::cout << "²²" << x << "," << y;
+		std::cout << "\xb1\xb1            \xb1\xb1\x1b[16D\x1b[B";
+		std::cout << "\xb1\xb1" << x << "," << y;
 		for (short i = 0; i < 2 - (short)x / 10; i++) {
 			std::cout << " ";
 		}
 		for (short i = 0; i < 2 - (short)y / 10; i++) {
 			std::cout << " ";
 		}
-		std::cout << "     ""²²\x1b[16D\x1b[B";
+		std::cout << "     ""\xb1\xb1\x1b[16D\x1b[B";
 		if (y == 0) {
-			std::cout << "²²²²²²²²²²²²²²²²\x1b[7A";
+			std::cout << "\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\x1b[7A";
 		}
 		else {
-			std::cout << "²²²²²²µ  Æ²²²²²²\x1b[7A";
+			std::cout << "\xb1\xb1\xb1\xb1\xb1\xb1\xb5  \xc6\xb1\xb1\xb1\xb1\xb1\xb1\x1b[7A";
 		}
 	}
 	else {
 		//if cell is at the top world border
 		if (y == world_size - 1) {
-			std::cout << "ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ\x1b[16D\x1b[B";
+			std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\x1b[16D\x1b[B";
 		}
 		else {
-			std::cout << "ÛÛÛÛÛÛµ  ÆÛÛÛÛÛÛ\x1b[16D\x1b[B";
+			std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xb5  \xc6\xdb\xdb\xdb\xdb\xdb\xdb\x1b[16D\x1b[B";
 		}
 
 		//if cell has stench
 		if (map.get_cell(x, y) & STENCH) {
-			std::cout << "ÛÛ\x1b[33m±±±±±±±±±±±±\x1b[37mÛÛ\x1b[16D\x1b[B";
-			std::cout << "ÛÛ\x1b[33m°°°°°°°°°°°°\x1b[37mÛÛ\x1b[16D\x1b[B";
+			std::cout << "\xdb\xdb\x1b[33m\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
+			std::cout << "\xdb\xdb\x1b[33m\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
 		}
 		else {
-			std::cout << "ÛÛ            ÛÛ\x1b[16D\x1b[B";
-			std::cout << "ÛÛ            ÛÛ\x1b[16D\x1b[B";
+			std::cout << "\xdb\xdb            \xdb\xdb\x1b[16D\x1b[B";
+			std::cout << "\xdb\xdb            \xdb\xdb\x1b[16D\x1b[B";
 		}
 
 		//if cell is at the left world border
 		if (x == 0) {
-			std::cout << "ÛÛ            ÐÐ\x1b[16D\x1b[B";
-			std::cout << "ÛÛ            ÒÒ\x1b[16D\x1b[B";
+			std::cout << "\xdb\xdb            \xd0\xd0\x1b[16D\x1b[B";
+			std::cout << "\xdb\xdb            \xd2\xd2\x1b[16D\x1b[B";
 		}
 		else {
-			std::cout << "ÐÐ      ";
+			std::cout << "\xd0\xd0      ";
 			//if cell is at the right world border
 			if (x == world_size - 1) {
-				std::cout << "      ÛÛ\x1b[16D\x1b[B";
-				std::cout << "ÒÒ            ÛÛ\x1b[16D\x1b[B";
+				std::cout << "      \xdb\xdb\x1b[16D\x1b[B";
+				std::cout << "\xd2\xd2            \xdb\xdb\x1b[16D\x1b[B";
 			}
 			else {
-				std::cout << "      ÐÐ\x1b[16D\x1b[B";
-				std::cout << "ÒÒ            ÒÒ\x1b[16D\x1b[B";
+				std::cout << "      \xd0\xd0\x1b[16D\x1b[B";
+				std::cout << "\xd2\xd2            \xd2\xd2\x1b[16D\x1b[B";
 			}
+		}
+
+		//if the cell has the gold
+		if (map.get_cell(x,y) & GOLD) {
+			std::cout << "\x1b[6C\x1b[A\x1b[33;1m\xf0\xdc\xdb\xf0\x1b[10D\x1b[B\x1b[37;22m";
 		}
 
 		//if the cell is breezy
 		if (map.get_cell(x, y) & 3/*3 becuase it checks the first 2 bytes, and we can reach 3 breezes, but not 4*/) {
-			std::cout << "ÛÛ\x1b[36m°°°°°°°°°°°°\x1b[37mÛÛ\x1b[16D\x1b[B";
-			std::cout << "ÛÛ" << x << "," << y << "\x1b[36m";
+			if (map.get_cell(x, y) & AGENT) {
+
+			}
+			std::cout << "\xdb\xdb\x1b[36m\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
+			std::cout << "\xdb\xdb" << x << "," << y << "\x1b[36m";
 			//adjustement for 2 space wide numbers
 			for (short i = 0; i < 2 - (short)x / 10; i++) {
-				std::cout << "±";
+				std::cout << "\xb1";
 			}
 			for (short i = 0; i < 2 - (short)y / 10; i++) {
-				std::cout << "±";
+				std::cout << "\xb1";
 			}
-			std::cout << "±±±±±""\x1b[37mÛÛ\x1b[16D\x1b[B";
+			std::cout << "\xb1\xb1\xb1\xb1\xb1\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
 		}
 		else {
-			std::cout << "ÛÛ            ÛÛ\x1b[16D\x1b[B";
-			std::cout << "ÛÛ" << x << "," << y;
+			std::cout << "\xdb\xdb            \xdb\xdb\x1b[16D\x1b[B";
+			std::cout << "\xdb\xdb" << x << "," << y;
 			//adjustement for 2 space wide numbers
 			for (short i = 0; i < 2 - (short)x / 10; i++) {
 				std::cout << " ";
@@ -243,15 +259,23 @@ void draw_cell(short x, short y) {
 			for (short i = 0; i < 2 - (short)y / 10; i++) {
 				std::cout << " ";
 			}
-			std::cout << "     ""ÛÛ\x1b[16D\x1b[B";
+			std::cout << "     ""\xdb\xdb\x1b[16D\x1b[B";
 		}
 
 		//if cell is at the lower world border
 		if (y == 0) {
-			std::cout << "ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ\x1b[7A";
+			std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\x1b[7A";
 		}
 		else {
-			std::cout << "ÛÛÛÛÛÛµ  ÆÛÛÛÛÛÛ\x1b[7A";
+			std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xb5  \xc6\xdb\xdb\xdb\xdb\xdb\xdb\x1b[7A";
+		}
+
+		//draw agent over cell, is easier then always checking in every line (saves ifs)
+		if (map.get_cell(x,y) & AGENT) {
+			std::cout << "\x1b[35m\x1b[4B\x1b[4D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+			if (x != old_x || y != old_y) {
+				draw_cell(old_x, old_y);
+			}
 		}
 	}
 }
@@ -276,7 +300,6 @@ void redraw_map() {
 
 int main() {
 	//init stuff
-	short x = 0, y = 0, old_x = 0, old_y = 0; //agent position variables
 	initialize_map();
 	initialize_console();
 	draw_map();
