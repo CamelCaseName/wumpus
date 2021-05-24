@@ -9,7 +9,9 @@ public:
 	agent_local() {};
 	~agent_local() {};
 	void walk(short* new_x, short* new_y, short* old_x, short* old_y, short* world_size);
+	void enable_walking() { walking_enabled = true; };
+	void disable_walking() { walking_enabled = false; };
 private:
-
+	bool walking_enabled = true;
 };
 #endif // !AGENT_LOCAL_H

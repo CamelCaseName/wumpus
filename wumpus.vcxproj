@@ -138,7 +138,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="agent_auto.cpp" />
-    <ClCompile Include="agent_base.cpp" />
     <ClCompile Include="agent_local.cpp" />
     <ClCompile Include="world.cpp" />
     <ClCompile Include="wumpus.cpp" />

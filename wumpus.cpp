@@ -30,12 +30,13 @@
 /// or i couold change the code page *shrug*
 /// </disclaimer2>
 
-short world_size = 8, x = 0, y = 0, old_x = 0, old_y = 0; //agent position variables
+short world_size = 4, x = 0, y = 0, old_x = 0, old_y = 0; //agent position variables
 world map;
 agent_local player;
 HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
 CONSOLE_SCREEN_BUFFER_INFO s;
 COORD console_buffer_size;
+bool player_walk_animation = 0, gameover = 0, fell_in_pit = 0, met_wumpus = 0;
 
 //closes the console window when ctrl+c is called
 BOOL WINAPI ConsoleHandler(DWORD ctrl_type) {
@@ -108,8 +109,8 @@ void initialize_console() {
 	printf("original buffer size : %d x %d, displaysize: %d x %d, ", console_buffer_size.X, console_buffer_size.Y, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
 
 	//adjust to 8x8 char size of a cell
-	console_buffer_size.X = ((int)(console_buffer_size.X / 8)) * 8;
-	console_buffer_size.Y = (((int)(console_buffer_size.Y / 8)) * 8) + 2;
+	console_buffer_size.X = world_size * 16;
+	console_buffer_size.Y = (world_size * 8) + 2;
 	SetConsoleScreenBufferSize(console, console_buffer_size);
 	printf("adjusted buffer size : %d x %d, fontsize = %d x %d", console_buffer_size.X, console_buffer_size.Y, GetConsoleFontSize(console, console_font.nFont).X, GetConsoleFontSize(console, console_font.nFont).Y);
 
@@ -143,13 +144,104 @@ void initialize_console() {
 
 }
 
+void pit_ending_draw() {
+	//move cursor back to cell beginning
+	std::cout << "\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
+
+	//if cell is at the top world border
+	if (y == world_size - 1) {
+		std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\x1b[16D\x1b[B";
+	}
+	else {
+		std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xb5  \xc6\xdb\xdb\xdb\xdb\xdb\xdb\x1b[16D\x1b[B";
+	}
+
+	std::cout << "\xdb\xdb\xb2\xb2\xb2\xb2\xb2\xb2\xb2\xb2\xb2\xb2\xb2\xb2\xdb\xdb\x1b[16D\x1b[B";
+	std::cout << "\xdb\xdb\xb2\xb2\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb2\xb2\xdb\xdb\x1b[16D\x1b[B";
+
+
+	//if cell is at the left world border
+	if (x == 0) {
+		std::cout << "\xdb\xdb\xb2\xb2\xb1\xb1\xb0\xb0\xb0\xb0\xb1\xb1\xb2\xb2\xd0\xd0\x1b[16D\x1b[B";
+		std::cout << "\xdb\xdb\xb2\xb2\xb1\xb1\xb0\xb0\xb0\xb0\xb1\xb1\xb2\xb2\xd2\xd2\x1b[16D\x1b[B";
+	}
+	else {
+		std::cout << "\xd0\xd0\xb2\xb2\xb1\xb1\xb0\xb0";
+		//if cell is at the right world border
+		if (x == world_size - 1) {
+			std::cout << "\xb0\xb0\xb1\xb1\xb2\xb2\xdb\xdb\x1b[16D\x1b[B";
+			std::cout << "\xd2\xd2\xb2\xb2\xb1\xb1\xb0\xb0\xb0\xb0\xb1\xb1\xb2\xb2\xdb\xdb\x1b[16D\x1b[B";
+		}
+		else {
+			std::cout << "\xb0\xb0\xb1\xb1\xb2\xb2\xd0\xd0\x1b[16D\x1b[B";
+			std::cout << "\xd2\xd2\xb2\xb2\xb1\xb1\xb0\xb0\xb0\xb0\xb1\xb1\xb2\xb2\xd2\xd2\x1b[16D\x1b[B";
+		}
+	}
+
+
+
+	std::cout << "\xdb\xdb\xb2\xb2\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb2\xb2\xdb\xdb\x1b[16D\x1b[B";
+	std::cout << "\xdb\xdb" << x << "," << y;
+	//adjustement for 2 space wide numbers
+	for (short i = 0; i < 2 - (short)x / 10; i++) {
+		std::cout << "\xb2";
+	}
+	for (short i = 0; i < 2 - (short)y / 10; i++) {
+		std::cout << "\xb2";
+	}
+	std::cout << "\xb2\xb2\xb2\xb2\xb2\xdb\xdb\x1b[16D\x1b[B";
+
+
+	//if cell is at the lower world border
+	if (y == 0) {
+		std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\x1b[7A";
+	}
+	else {
+		std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xb5  \xc6\xdb\xdb\xdb\xdb\xdb\xdb\x1b[7A";
+	}
+}
+
+//draws a square of size size at the current cursor position
+void draw_block(short* size) {
+	for (short k = 0; k < *size; k++) {
+		for (short i = 0; i < *size; i++) {
+			std::cout << "\xdb\xdb";
+		}
+		std::cout << "\x1b[" << (*size * 2) << "D\x1b[B";
+	}
+	std::cout << "\x1b[" << *size << "C\x1b[" << *size << "A";
+}
+
+void draw_gameover() {
+	short square_size = 0;
+	//move cursor to lowest point
+	std::cout << "\x1b[2;0H\x1b[40;22m";
+
+	//fill all cells with emptyness
+	for (short i = 2; i <= console_buffer_size.Y; i++) {
+		for (short k = 0; k < console_buffer_size.X; k++) {
+			std::cout << " ";
+		}
+		//move cursor down one line to the beginning
+		std::cout << "\x1b[B\x1b[" << console_buffer_size.X << "D";
+	}
+
+	//change size depending on string length
+	if (fell_in_pit) {
+		square_size = (short)(console_buffer_size.X / (13 * 4)); //string is 13 letters long
+		std::cout << "\x1b[4;2H\x1b[31m";
+		draw_block(&square_size);
+	}
+}
+
 //draws a single cell https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences#designate-character-set
 void draw_cell(short x, short y) {
-	//some drawing magic (ciode looks shit, but works flawless)
+	//some drawing magic (code looks shit, but works flawless)
 	//if (x > 0) {
 	//	x--;
 	//}
 	std::cout << "\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
+	//if cell is not visited, i.e. not discovered
 	if (!(map.get_cell(x, y) & VISITED)) {
 		if (y == world_size - 1) {
 			std::cout << "\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\x1b[16D\x1b[B";
@@ -183,7 +275,7 @@ void draw_cell(short x, short y) {
 		for (short i = 0; i < 2 - (short)y / 10; i++) {
 			std::cout << " ";
 		}
-		std::cout << "     ""\xb1\xb1\x1b[16D\x1b[B";
+		std::cout << "     \xb1\xb1\x1b[16D\x1b[B";
 		if (y == 0) {
 			std::cout << "\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\x1b[7A";
 		}
@@ -192,90 +284,191 @@ void draw_cell(short x, short y) {
 		}
 	}
 	else {
-		//if cell is at the top world border
-		if (y == world_size - 1) {
-			std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\x1b[16D\x1b[B";
-		}
-		else {
-			std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xb5  \xc6\xdb\xdb\xdb\xdb\xdb\xdb\x1b[16D\x1b[B";
-		}
+		//if the cell is a pit
+		if (map.get_cell(x, y) & PIT) {
+			//set end screen var plus disable movement
+			fell_in_pit = 1;
+			player.disable_walking();
 
-		//if cell has stench
-		if (map.get_cell(x, y) & STENCH) {
-			std::cout << "\xdb\xdb\x1b[33m\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
-			std::cout << "\xdb\xdb\x1b[33m\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
-		}
-		else {
-			std::cout << "\xdb\xdb            \xdb\xdb\x1b[16D\x1b[B";
-			std::cout << "\xdb\xdb            \xdb\xdb\x1b[16D\x1b[B";
-		}
+			//move cursor to lowest point
+			std::cout << "\x1b[2;0H\x1b[40;22m";
 
-		//if cell is at the left world border
-		if (x == 0) {
-			std::cout << "\xdb\xdb            \xd0\xd0\x1b[16D\x1b[B";
-			std::cout << "\xdb\xdb            \xd2\xd2\x1b[16D\x1b[B";
+			//fill all cells with emptyness
+			for (short i = 2; i <= console_buffer_size.Y; i++) {
+				for (short k = 0; k < console_buffer_size.X; k++) {
+					std::cout << " ";
+				}
+				//move cursor back down one line to the beginning
+				std::cout << "\x1b[B\x1b[" << console_buffer_size.X << "D";
+			}
+
+			//move cursor back to cell beginning
+			std::cout << "\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
+
+			pit_ending_draw();
+
+			//draw agent over cell, is easier then always checking in every line (saves ifs)
+			if (map.get_cell(x, y) & AGENT) {
+				if (player_walk_animation) {
+					std::cout << "\x1b[38;2;0;128;0m\x1b[2B\x1b[8D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+				}
+				else {
+					std::cout << "\x1b[38;2;0;128;0m\x1b[2B\x1b[8D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+				}
+			}
+
+			//delay next frame
+			Sleep(300);
+
+			//draw next frame
+			pit_ending_draw();
+			if (map.get_cell(x, y) & AGENT) {
+				if (player_walk_animation) {
+					std::cout << "\x1b[38;2;0;64;0m\x1b[3B\x1b[8D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[37m\x1b[6A\x1b[2C";
+				}
+				else {
+					std::cout << "\x1b[38;2;0;64;0m\x1b[3B\x1b[8D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[37m\x1b[6A\x1b[2C";
+				}
+			}
+
+			//delay next frame
+			Sleep(300);
+
+			//draw next frame
+			pit_ending_draw();
+			if (map.get_cell(x, y) & AGENT) {
+				if (player_walk_animation) {
+					std::cout << "\x1b[38;2;;32;0m\x1b[4B\x1b[8D\x01\x1b[37m\x1b[6A\x1b[2C";
+				}
+				else {
+					std::cout << "\x1b[38;2;0;32;0m\x1b[4B\x1b[8D\x01\x1b[37m\x1b[6A\x1b[2C";
+				}
+			}
+
+			//delay next frame
+			Sleep(300);
+
+			//draw next frame
+			pit_ending_draw();
+
+			//give player some time to think about their actions
+			Sleep(1500);
+
+			//reset background color
+			std::cout << "\x1b[40;22m";
+
+			//game ends
+			gameover = 1;
 		}
+		//if the cell has the WUMPUS in it...
+		else if (map.get_cell(x, y) & WUMPUS) {
+			//set end screen var plus disable movement
+			met_wumpus = 1;
+			player.disable_walking();
+		}
+		//"normal" cell
 		else {
-			std::cout << "\xd0\xd0      ";
-			//if cell is at the right world border
-			if (x == world_size - 1) {
-				std::cout << "      \xdb\xdb\x1b[16D\x1b[B";
-				std::cout << "\xd2\xd2            \xdb\xdb\x1b[16D\x1b[B";
+			//set background color
+			std::cout << "\x1b[48;2;30;30;30m";
+
+			//if cell is at the top world border
+			if (y == world_size - 1) {
+				std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\x1b[16D\x1b[B";
 			}
 			else {
-				std::cout << "      \xd0\xd0\x1b[16D\x1b[B";
-				std::cout << "\xd2\xd2            \xd2\xd2\x1b[16D\x1b[B";
+				std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xb5  \xc6\xdb\xdb\xdb\xdb\xdb\xdb\x1b[16D\x1b[B";
 			}
-		}
 
-		//if the cell has the gold
-		if (map.get_cell(x,y) & GOLD) {
-			std::cout << "\x1b[6C\x1b[A\x1b[33;1m\xf0\xdc\xdb\xf0\x1b[10D\x1b[B\x1b[37;22m";
-		}
+			//if cell has stench
+			if (map.get_cell(x, y) & STENCH) {
+				std::cout << "\xdb\xdb\x1b[33m\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
+				std::cout << "\xdb\xdb\x1b[33m\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
+			}
+			else {
+				std::cout << "\xdb\xdb            \xdb\xdb\x1b[16D\x1b[B";
+				std::cout << "\xdb\xdb            \xdb\xdb\x1b[16D\x1b[B";
+			}
 
-		//if the cell is breezy
-		if (map.get_cell(x, y) & 3/*3 becuase it checks the first 2 bytes, and we can reach 3 breezes, but not 4*/) {
+			//if cell is at the left world border
+			if (x == 0) {
+				std::cout << "\xdb\xdb            \xd0\xd0\x1b[16D\x1b[B";
+				std::cout << "\xdb\xdb            \xd2\xd2\x1b[16D\x1b[B";
+			}
+			else {
+				std::cout << "\xd0\xd0      ";
+				//if cell is at the right world border
+				if (x == world_size - 1) {
+					std::cout << "      \xdb\xdb\x1b[16D\x1b[B";
+					std::cout << "\xd2\xd2            \xdb\xdb\x1b[16D\x1b[B";
+				}
+				else {
+					std::cout << "      \xd0\xd0\x1b[16D\x1b[B";
+					std::cout << "\xd2\xd2            \xd2\xd2\x1b[16D\x1b[B";
+				}
+			}
+
+			//if the cell has the gold
+			if (map.get_cell(x, y) & GOLD) {
+				std::cout << "\x1b[6C\x1b[2A\x1b[33;1m\x1b[48;2;81;77;47m    \x1b[B\x1b[4D\xf0\xdc\xdb\xf0\x1b[10D\x1b[B\x1b[37;22m\x1b[48;2;30;30;30m";
+			}
+
+			//if the cell is breezy
+			if (map.get_cell(x, y) & 3/*3 becuase it checks the first 2 bytes, and we can reach 3 breezes, but not 4*/) {
+				if (map.get_cell(x, y) & AGENT) {
+
+				}
+				std::cout << "\xdb\xdb\x1b[36m\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
+				std::cout << "\xdb\xdb" << x << "," << y << "\x1b[36m";
+				//adjustement for 2 space wide numbers
+				for (short i = 0; i < 2 - (short)x / 10; i++) {
+					std::cout << "\xb1";
+				}
+				for (short i = 0; i < 2 - (short)y / 10; i++) {
+					std::cout << "\xb1";
+				}
+				std::cout << "\xb1\xb1\xb1\xb1\xb1\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
+			}
+			else {
+				std::cout << "\xdb\xdb            \xdb\xdb\x1b[16D\x1b[B";
+				std::cout << "\xdb\xdb" << x << "," << y;
+				//adjustement for 2 space wide numbers
+				for (short i = 0; i < 2 - (short)x / 10; i++) {
+					std::cout << " ";
+				}
+				for (short i = 0; i < 2 - (short)y / 10; i++) {
+					std::cout << " ";
+				}
+				std::cout << "     \xdb\xdb\x1b[16D\x1b[B";
+			}
+
+			//if cell is at the lower world border
+			if (y == 0) {
+				std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\x1b[7A";
+			}
+			else {
+				std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xb5  \xc6\xdb\xdb\xdb\xdb\xdb\xdb\x1b[7A";
+			}
+
+			//draw agent over cell, is easier then always checking in every line (saves ifs)
 			if (map.get_cell(x, y) & AGENT) {
+				if (player_walk_animation) {
+					player_walk_animation = 0;
+					std::cout << "\x1b[32m\x1b[4B\x1b[4D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+					if (x != old_x || y != old_y) {
+						draw_cell(old_x, old_y);
+					}
+				}
+				else {
+					player_walk_animation = 1;
+					std::cout << "\x1b[32m\x1b[4B\x1b[4D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+					if (x != old_x || y != old_y) {
+						draw_cell(old_x, old_y);
+					}
+				}
+			}
 
-			}
-			std::cout << "\xdb\xdb\x1b[36m\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
-			std::cout << "\xdb\xdb" << x << "," << y << "\x1b[36m";
-			//adjustement for 2 space wide numbers
-			for (short i = 0; i < 2 - (short)x / 10; i++) {
-				std::cout << "\xb1";
-			}
-			for (short i = 0; i < 2 - (short)y / 10; i++) {
-				std::cout << "\xb1";
-			}
-			std::cout << "\xb1\xb1\xb1\xb1\xb1\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
-		}
-		else {
-			std::cout << "\xdb\xdb            \xdb\xdb\x1b[16D\x1b[B";
-			std::cout << "\xdb\xdb" << x << "," << y;
-			//adjustement for 2 space wide numbers
-			for (short i = 0; i < 2 - (short)x / 10; i++) {
-				std::cout << " ";
-			}
-			for (short i = 0; i < 2 - (short)y / 10; i++) {
-				std::cout << " ";
-			}
-			std::cout << "     ""\xdb\xdb\x1b[16D\x1b[B";
-		}
-
-		//if cell is at the lower world border
-		if (y == 0) {
-			std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\x1b[7A";
-		}
-		else {
-			std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xb5  \xc6\xdb\xdb\xdb\xdb\xdb\xdb\x1b[7A";
-		}
-
-		//draw agent over cell, is easier then always checking in every line (saves ifs)
-		if (map.get_cell(x,y) & AGENT) {
-			std::cout << "\x1b[35m\x1b[4B\x1b[4D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
-			if (x != old_x || y != old_y) {
-				draw_cell(old_x, old_y);
-			}
+			//reset background color
+			std::cout << "\x1b[40;22m";
 		}
 	}
 }
@@ -303,16 +496,26 @@ int main() {
 	initialize_map();
 	initialize_console();
 	draw_map();
+	player.enable_walking();
 
 	//main game loop
-	while (1) {
+	while (!gameover) {
 		Sleep(33);
-		player.walk(&x, &y, &old_x, &old_y, &world_size);
-		if (x != old_x || y != old_y) {
-			map.update(x, y, old_x, old_y);
+		if (!met_wumpus && !fell_in_pit) {
+			player.walk(&x, &y, &old_x, &old_y, &world_size);
+			if (x != old_x || y != old_y) {
+				map.update(x, y, old_x, old_y);
+				redraw_map();
+				Sleep(250);
+			}
+		}
+		else {
 			redraw_map();
-			Sleep(250);
-
 		}
 	}
+
+	//draw game end screen
+	draw_gameover();
+
+	Sleep(10000);
 }
