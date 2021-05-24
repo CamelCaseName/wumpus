@@ -23,5 +23,6 @@
 #include <windows.h> //well on windows obviously it's standard, fight me
 
 //ext. libraries
+#include "bmp/BMP.h"
 
 #endif // !WUMPUS_H

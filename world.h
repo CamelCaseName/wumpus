@@ -30,6 +30,7 @@ public:
 	bool size_check(short x, short y, short x2, short y2);
 	bool random_fill();
 	bool default_fill();
+	void clear();
 
 private:
 	std::vector <std::vector <cell> > internal_map;

@@ -144,6 +144,7 @@ void initialize_console() {
 
 }
 
+//draws the pit
 void pit_ending_draw() {
 	//move cursor back to cell beginning
 	std::cout << "\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
@@ -212,6 +213,51 @@ void draw_block(short* size) {
 	std::cout << "\x1b[" << *size << "C\x1b[" << *size << "A";
 }
 
+//draws from a bmp file to the console
+void draw_from_bmp(char* path) {
+
+	//vars and the BMP structure
+	BMP in(path);
+	uint8_t channels = in.bmp_info_header.bit_count / 8;
+	short square_size = 0;
+
+	//move cursor to lowest point
+	std::cout << "\x1b[2;0H\x1b[40;22m";
+
+	//fill all cells with emptyness
+	for (short i = 2; i <= console_buffer_size.Y; i++) {
+		for (short k = 0; k < console_buffer_size.X; k++) {
+			std::cout << " ";
+		}
+		//move cursor down one line to the beginning
+		std::cout << "\x1b[B\x1b[" << console_buffer_size.X << "D";
+	}
+
+	//change size depending on picture resolution
+	square_size = (short)(console_buffer_size.X / (in.bmp_info_header.width));
+	std::cout << "\x1b[2;0H";
+
+	//iterate through pixels and display them
+	for (uint8_t y = 0; y < in.bmp_info_header.height; y++) {
+		for (uint8_t x = 0; x < in.bmp_info_header.width; x++) {
+			if (in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 2] < 20 && in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 1] < 20 && in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 0] < 20) {
+
+			}
+			else {
+				std::cout << "\x1b[38;2;" << (unsigned short)in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 2];
+				std::cout << ";" << (unsigned short)in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 1];
+				std::cout << ";" << (unsigned short)in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 0] << "m";
+				std::cout << "\x1b[" << y * square_size + 2 << ";" << x * square_size * 2 << "H";
+				draw_block(&square_size);
+			}
+		}
+	}
+
+	//restore defaults
+	std::cout << "\x1b[0m";
+}
+
+//draws the game over screen
 void draw_gameover() {
 	short square_size = 0;
 	//move cursor to lowest point
@@ -226,15 +272,23 @@ void draw_gameover() {
 		std::cout << "\x1b[B\x1b[" << console_buffer_size.X << "D";
 	}
 
-	//change size depending on string length
+	//display a end screen when falling into a pit
 	if (fell_in_pit) {
-		square_size = (short)(console_buffer_size.X / (13 * 4)); //string is 13 letters long
-		std::cout << "\x1b[4;2H\x1b[31m";
-		draw_block(&square_size);
+		//square_size = (short)(console_buffer_size.X / (13 * 4)); //string is 13 letters long
+		//std::cout << "\x1b[4;2H\x1b[31m";
+		//draw_block(&square_size);
+
+		//choose one of the multiple end screens
+		if (rand() % 2 == 0) {
+			draw_from_bmp((char*)"pit1.bmp");
+		}
+		else {
+			draw_from_bmp((char*)"pit2.bmp");
+		}
 	}
 }
 
-//draws a single cell https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences#designate-character-set
+//draws a single cell https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
 void draw_cell(short x, short y) {
 	//some drawing magic (code looks shit, but works flawless)
 	//if (x > 0) {
@@ -486,21 +540,26 @@ void draw_map() {
 	ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
 }
 
+//redraws the last visited cells
 void redraw_map() {
 	draw_cell(player.get_x_position(), player.get_y_position());
 	ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
 }
 
+//main function
 int main() {
 	//init stuff
 	initialize_map();
 	initialize_console();
 	draw_map();
+	player.set_x_position(0);
+	player.set_y_position(0);
 	player.enable_walking();
 
 	//main game loop
 	while (!gameover) {
 		Sleep(33);
+		//as long as nothing bad happens
 		if (!met_wumpus && !fell_in_pit) {
 			player.walk(&x, &y, &old_x, &old_y, &world_size);
 			if (x != old_x || y != old_y) {
@@ -517,5 +576,17 @@ int main() {
 	//draw game end screen
 	draw_gameover();
 
-	Sleep(10000);
+	//check for restart
+	while (!(GetKeyState(VK_ESCAPE) & 0x8000)) {
+		if (GetKeyState(VK_RETURN) & 0x8000) {
+			gameover = 0;
+			fell_in_pit = 0;
+			met_wumpus = 0;
+			map.clear();
+			main();
+		}
+	}
+
+	//exit the program
+	ExitProcess(0);
 }

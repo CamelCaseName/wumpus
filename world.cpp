@@ -186,3 +186,12 @@ void world::set_size(short size_in) {
 		internal_map.push_back(default_vector_of_cells);
 	}
 }
+
+void world::clear() {
+
+	//pop all cells
+	for (short i = 0; i < size; i++) {
+		internal_map[i].clear();
+	}
+	internal_map.clear();
+}
