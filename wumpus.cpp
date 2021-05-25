@@ -46,6 +46,35 @@ BOOL WINAPI ConsoleHandler(DWORD ctrl_type) {
 	return FALSE;
 }
 
+//create image files if necessary
+bool initialize_files() {
+	//filestream to test for one of the images
+	std::fstream file_test("pit1.bmp", std::fstream::in | std::fstream::binary);
+	if (file_test.good()) {
+		file_test.close();
+		return true;
+	}
+	else {
+		try {
+//create streams to write the files out
+		file_test.open("pit1.bmp", std::fstream::out | std::fstream::binary);
+		//should write the pit1 stream to the file
+		file_test.write(&pit1[0], static_cast<std::streamsize>(5994));
+		file_test.close();
+
+		//write second file
+		file_test.open("pit2.bmp", std::fstream::out | std::fstream::binary);
+		file_test.write(&pit2[0], static_cast<std::streamsize>(5994));
+		file_test.close();
+		return true;
+		}
+		catch (std::exception e) {
+			return false;
+		}
+	}
+	return false;
+}
+
 //initializes the map
 void initialize_map() {
 	//init world with correct size (minimum 4)
@@ -93,7 +122,7 @@ void initialize_console() {
 	//enable some console flags (vt100 sequence processing (mouse input should be disabled, but somehow isn't))
 	GetConsoleMode(console, &dwMode);
 	dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-	SetConsoleMode(console, ENABLE_EXTENDED_FLAGS | (dwMode & ~ENABLE_QUICK_EDIT_MODE));
+	SetConsoleMode(console, dwMode);
 
 	//clear screen once
 	GetConsoleScreenBufferInfo(console, &s);
@@ -286,6 +315,9 @@ void draw_gameover() {
 			draw_from_bmp((char*)"pit2.bmp");
 		}
 	}
+
+	//draw keybinds for exiting/restarting
+	std::cout << "\x1b[2;24H\x1b[30;1;47mPRESS ESC TO END THE GAME, PRESS RETURN TO RESTART\x1b[0m";
 }
 
 //draws a single cell https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
@@ -406,7 +438,7 @@ void draw_cell(short x, short y) {
 			pit_ending_draw();
 
 			//give player some time to think about their actions
-			Sleep(1500);
+			Sleep(500);
 
 			//reset background color
 			std::cout << "\x1b[40;22m";
@@ -548,42 +580,46 @@ void redraw_map() {
 
 //main function
 int main() {
-	//init stuff
-	initialize_map();
-	initialize_console();
-	draw_map();
-	player.set_x_position(0);
-	player.set_y_position(0);
-	player.enable_walking();
 
-	//main game loop
-	while (!gameover) {
-		Sleep(33);
-		//as long as nothing bad happens
-		if (!met_wumpus && !fell_in_pit) {
-			player.walk(&x, &y, &old_x, &old_y, &world_size);
-			if (x != old_x || y != old_y) {
-				map.update(x, y, old_x, old_y);
+	//we can create the image files if we need
+	if (initialize_files()) {
+		//init stuff
+		initialize_map();
+		initialize_console();
+		draw_map();
+		player.set_x_position(0);
+		player.set_y_position(0);
+		player.enable_walking();
+
+		//main game loop
+		while (!gameover) {
+			Sleep(33);
+			//as long as nothing bad happens
+			if (!met_wumpus && !fell_in_pit) {
+				player.walk(&x, &y, &old_x, &old_y, &world_size);
+				if (x != old_x || y != old_y) {
+					map.update(x, y, old_x, old_y);
+					redraw_map();
+					Sleep(250);
+				}
+			}
+			else {
 				redraw_map();
-				Sleep(250);
 			}
 		}
-		else {
-			redraw_map();
-		}
-	}
 
-	//draw game end screen
-	draw_gameover();
+		//draw game end screen
+		draw_gameover();
 
-	//check for restart
-	while (!(GetKeyState(VK_ESCAPE) & 0x8000)) {
-		if (GetKeyState(VK_RETURN) & 0x8000) {
-			gameover = 0;
-			fell_in_pit = 0;
-			met_wumpus = 0;
-			map.clear();
-			main();
+		//check for restart
+		while (!(GetKeyState(VK_ESCAPE) & 0x8000)) {
+			if (GetKeyState(VK_RETURN) & 0x8000) {
+				gameover = 0;
+				fell_in_pit = 0;
+				met_wumpus = 0;
+				map.clear();
+				main();
+			}
 		}
 	}
 

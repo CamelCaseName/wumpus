@@ -15,6 +15,7 @@
 #include "world.h"
 #include "agent_auto.h"
 #include "agent_local.h"
+#include "images.h"
 
 //std. libraries
 #include <iostream>

@@ -29,11 +29,20 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="pit1.bmp">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="pit2.bmp">
-      <Filter>Resource Files</Filter>
-    </Image>
+    <ClInclude Include="agent_auto.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="agent_local.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="world.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="wumpus.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="images.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

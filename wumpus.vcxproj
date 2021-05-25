@@ -143,8 +143,11 @@
     <ClCompile Include="wumpus.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="pit1.bmp" />
-    <Image Include="pit2.bmp" />
+    <ClInclude Include="agent_auto.h" />
+    <ClInclude Include="agent_local.h" />
+    <ClInclude Include="images.h" />
+    <ClInclude Include="world.h" />
+    <ClInclude Include="wumpus.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
