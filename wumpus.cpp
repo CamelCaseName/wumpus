@@ -36,7 +36,7 @@ agent_local player;
 HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
 CONSOLE_SCREEN_BUFFER_INFO s;
 COORD console_buffer_size;
-bool player_walk_animation = 0, gameover = 0, fell_in_pit = 0, met_wumpus = 0;
+bool player_walk_animation = 0, gameover = 0, fell_in_pit = 0, met_wumpus = 0, got_gold = 0;
 
 //closes the console window when ctrl+c is called
 BOOL WINAPI ConsoleHandler(DWORD ctrl_type) {
@@ -56,17 +56,29 @@ bool initialize_files() {
 	}
 	else {
 		try {
-//create streams to write the files out
-		file_test.open("pit1.bmp", std::fstream::out | std::fstream::binary);
-		//should write the pit1 stream to the file
-		file_test.write(&pit1[0], static_cast<std::streamsize>(5994));
-		file_test.close();
+			//create streams to write the files out
+			file_test.open("pit1.bmp", std::fstream::out | std::fstream::binary);
+			//should write the pit1 stream to the file
+			file_test.write(&pit1[0], static_cast<std::streamsize>(5994));
+			file_test.close();
 
-		//write second file
-		file_test.open("pit2.bmp", std::fstream::out | std::fstream::binary);
-		file_test.write(&pit2[0], static_cast<std::streamsize>(5994));
-		file_test.close();
-		return true;
+			//write second file
+			file_test.open("pit2.bmp", std::fstream::out | std::fstream::binary);
+			file_test.write(&pit2[0], static_cast<std::streamsize>(5994));
+			file_test.close();
+
+			//write third file
+			file_test.open("gold1.bmp", std::fstream::out | std::fstream::binary);
+			file_test.write(&gold1[0], static_cast<std::streamsize>(5814));
+			file_test.close();
+
+			//write fourth file
+			file_test.open("gold2.bmp", std::fstream::out | std::fstream::binary);
+			file_test.write(&gold2[0], static_cast<std::streamsize>(5814));
+			file_test.close();
+
+			//return true to say "ok, we did it!!!!"
+			return true;
 		}
 		catch (std::exception e) {
 			return false;
@@ -86,7 +98,7 @@ void initialize_map() {
 	}
 
 	//fill map randomly
-	if (map.random_fill()) {
+	if (map.default_fill()) { //change to random fill
 		//map filled ok
 	}
 	else {
@@ -246,44 +258,52 @@ void draw_block(short* size) {
 void draw_from_bmp(char* path) {
 
 	//vars and the BMP structure
-	BMP in(path);
-	uint8_t channels = in.bmp_info_header.bit_count / 8;
-	short square_size = 0;
+	try {
+		BMP in(path);
+		uint8_t channels = in.bmp_info_header.bit_count / 8;
+		short square_size = 0;
 
-	//move cursor to lowest point
-	std::cout << "\x1b[2;0H\x1b[40;22m";
+		//move cursor to lowest point
+		std::cout << "\x1b[2;0H\x1b[40;22m";
 
-	//fill all cells with emptyness
-	for (short i = 2; i <= console_buffer_size.Y; i++) {
-		for (short k = 0; k < console_buffer_size.X; k++) {
-			std::cout << " ";
+		//fill all cells with emptyness
+		for (short i = 2; i <= console_buffer_size.Y; i++) {
+			for (short k = 0; k < console_buffer_size.X; k++) {
+				std::cout << " ";
+			}
+			//move cursor down one line to the beginning
+			std::cout << "\x1b[B\x1b[" << console_buffer_size.X << "D";
 		}
-		//move cursor down one line to the beginning
-		std::cout << "\x1b[B\x1b[" << console_buffer_size.X << "D";
+
+		//change size depending on picture resolution
+		square_size = (short)(console_buffer_size.X / (in.bmp_info_header.width));
+		std::cout << "\x1b[2;0H";
+
+		//iterate through pixels and display them
+		for (uint8_t y = 0; y < in.bmp_info_header.height; y++) {
+			for (uint8_t x = 0; x < in.bmp_info_header.width; x++) {
+				if (in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 2] < 20 && in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 1] < 20 && in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 0] < 20) {
+
+				}
+				else {
+					std::cout << "\x1b[38;2;" << (unsigned short)in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 2];
+					std::cout << ";" << (unsigned short)in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 1];
+					std::cout << ";" << (unsigned short)in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 0] << "m";
+					std::cout << "\x1b[" << y * square_size + 2 << ";" << x * square_size * 2 << "H";
+					draw_block(&square_size);
+				}
+			}
+		}
+
+		//restore defaults
+		std::cout << "\x1b[0m";
+	}
+	catch (std::runtime_error e) {
+		std::cout << "\x1b[2;0H\x1b[40;22mCAN'T FIND IMAGE: " << path;
+		Sleep(3000);
+		ExitProcess(1);
 	}
 
-	//change size depending on picture resolution
-	square_size = (short)(console_buffer_size.X / (in.bmp_info_header.width));
-	std::cout << "\x1b[2;0H";
-
-	//iterate through pixels and display them
-	for (uint8_t y = 0; y < in.bmp_info_header.height; y++) {
-		for (uint8_t x = 0; x < in.bmp_info_header.width; x++) {
-			if (in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 2] < 20 && in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 1] < 20 && in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 0] < 20) {
-
-			}
-			else {
-				std::cout << "\x1b[38;2;" << (unsigned short)in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 2];
-				std::cout << ";" << (unsigned short)in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 1];
-				std::cout << ";" << (unsigned short)in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 0] << "m";
-				std::cout << "\x1b[" << y * square_size + 2 << ";" << x * square_size * 2 << "H";
-				draw_block(&square_size);
-			}
-		}
-	}
-
-	//restore defaults
-	std::cout << "\x1b[0m";
 }
 
 //draws the game over screen
@@ -315,6 +335,18 @@ void draw_gameover() {
 			draw_from_bmp((char*)"pit2.bmp");
 		}
 	}
+	else if (got_gold) {
+		//choose one of the multiple end screens
+		if (rand() % 2 == 0) {
+			draw_from_bmp((char*)"gold1.bmp");
+		}
+		else {
+			draw_from_bmp((char*)"gold1.bmp");
+		}
+	}
+
+	//some waiting time
+	Sleep(1000);
 
 	//draw keybinds for exiting/restarting
 	std::cout << "\x1b[2;24H\x1b[30;1;47mPRESS ESC TO END THE GAME, PRESS RETURN TO RESTART\x1b[0m";
@@ -322,11 +354,10 @@ void draw_gameover() {
 
 //draws a single cell https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
 void draw_cell(short x, short y) {
+
 	//some drawing magic (code looks shit, but works flawless)
-	//if (x > 0) {
-	//	x--;
-	//}
 	std::cout << "\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
+
 	//if cell is not visited, i.e. not discovered
 	if (!(map.get_cell(x, y) & VISITED)) {
 		if (y == world_size - 1) {
@@ -446,12 +477,14 @@ void draw_cell(short x, short y) {
 			//game ends
 			gameover = 1;
 		}
+
 		//if the cell has the WUMPUS in it...
 		else if (map.get_cell(x, y) & WUMPUS) {
 			//set end screen var plus disable movement
 			met_wumpus = 1;
 			player.disable_walking();
 		}
+
 		//"normal" cell
 		else {
 			//set background color
@@ -553,8 +586,173 @@ void draw_cell(short x, short y) {
 				}
 			}
 
-			//reset background color
-			std::cout << "\x1b[40;22m";
+			if (map.get_cell(x, y) & GOLD) {
+				//set end screen var plus disable movement
+				got_gold = 1;
+				player.disable_walking();
+
+				//left = 1, top = 2, right = 4, bottom = 8
+				uint8_t border = 0, i_at_border_hit = 0;
+
+				Sleep(300);
+
+				//set colors plus move cursor to the correct position
+				std::cout << "\x1b[33;1m\x1b[43;1m\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H\x1b[3B\x1b[6C";
+				/*for (uint8_t i = 1; i < world_size * 8 + 6; i += 2) { //takes 4 + 1 cylces (<6) to fill the cell with the gold
+					//after 4 cycles, cell is filled. plus 8 more, we fill the next
+
+					//some really fucked up shit that just miraculously works (sometimes) ¯\_(ツ)_/¯ v0.1
+					if (i == (x + 1) * 8 + 7) {
+						i_at_border_hit = i;
+						border += 1;
+					}
+					if (i == (world_size - y) * 8 + 7) {
+						i_at_border_hit = i;
+						border += 2;
+					}
+					if (i == (world_size - x + 1) * 8 + 7) {
+						i_at_border_hit = i;
+						border += 4;
+					}
+					if (i == (y + 2) * 8 + 7) {
+						i_at_border_hit = i;
+						border += 8;
+					}
+
+					std::cout << "\x1b[0m\x1b""7\x1b[1;112H| current borders: " << (int)border << "\x1b""8\x1b[33;1m\x1b[43;1m";
+
+					//right --> left
+					if (!(border & 2)) {
+						if (i == 1) {
+							//fill central square
+							std::cout << "\x1b[2C\xdb\xdb\x1b[4D\xdb\xdb\x1b[2D";
+							std::cout << "\x1b[B\x1b[2C\xdb\xdb\x1b[4D\xdb\xdb\x1b[2D\x1b[2A";
+						}
+						else {
+							std::cout << "\x1b[A\x1b[2D";
+						}
+						std::cout << "\xdb\xdb\xdb\xdb";
+						for (uint8_t k = 0; k < i; k++) {
+							std::cout << "\xdb\xdb";
+						}
+					}
+					else {
+						std::cout << "\x1b[4C";
+						for (uint8_t k = 1; k < i_at_border_hit + (i - i_at_border_hit) / 2; k++) {
+							std::cout << "\x1b[2C";
+						}
+					}
+
+					//top --> bottom
+					if (!(border & 4)) {
+						std::cout << "\x1b[B\x1b[2D\xdb\xdb";
+						std::cout << "\x1b[B\x1b[2D\xdb\xdb";
+						if (!(border & 2)) {
+							for (uint8_t k = 0; k < i; k++) {
+								std::cout << "\x1b[B\x1b[2D\xdb\xdb";
+							}
+						}
+						else {
+							for (uint8_t k = 1; k < i_at_border_hit + (i - i_at_border_hit) / 2; k++) {
+								std::cout << "\x1b[B\x1b[2D\xdb\xdb";
+							}
+						}
+
+					}
+					else {
+						//std::cout << "\x1b[2B";
+						for (uint8_t k = 1; k < i_at_border_hit + (i - i_at_border_hit) / 2; k++) {
+							std::cout << "\x1b[B";
+						}
+					}
+
+					//left --> right
+					if (!(border & 8)) {
+						std::cout << "\x1b[4D\xdb\xdb";
+						std::cout << "\x1b[4D\xdb\xdb";
+						for (uint8_t k = 0; k < i; k++) {
+							std::cout << "\x1b[4D\xdb\xdb";
+						}
+					}
+					else {
+						std::cout << "\x1b[4D";
+						for (uint8_t k = 1; k < i_at_border_hit + (i - i_at_border_hit) / 2; k++) {
+							std::cout << "\x1b[2D";
+						}
+					}
+
+					//bottom --> top
+					if (!(border & 1)) {
+						std::cout << "\x1b[A\x1b[2D\xdb\xdb";
+						std::cout << "\x1b[A\x1b[2D\xdb\xdb";
+						for (uint8_t k = 0; k < i; k++) {
+							std::cout << "\x1b[A\x1b[2D\xdb\xdb";
+						}
+					}
+					else {
+						std::cout << "\x1b[2A";
+						for (uint8_t k = 1; k < i_at_border_hit + (i - i_at_border_hit) / 2; k++) {
+							std::cout << "\x1b[A";
+						}
+					}
+					Sleep(500);
+				}*/
+				for (uint8_t i = 1; i < 6; i += 2) { //takes 4 + 1 cylces (<6) to fill the cell with the gold
+
+					//some really fucked up shit that just miraculously works (sometimes) ¯\_(ツ)_/¯ v0.5
+					//right --> left
+					if (i == 1) {
+						//fill central square
+						std::cout << "\x1b[2C\xdb\xdb\x1b[4D\xdb\xdb\x1b[2D";
+						std::cout << "\x1b[B\x1b[2C\xdb\xdb\x1b[4D\xdb\xdb\x1b[2D\x1b[2A";
+					}
+					else {
+						std::cout << "\x1b[A\x1b[2D";
+					}
+					std::cout << "\xdb\xdb\xdb\xdb";
+					for (uint8_t k = 0; k < i; k++) {
+						std::cout << "\xdb\xdb";
+					}
+
+					//top --> bottom
+					std::cout << "\x1b[B\x1b[2D\xdb\xdb";
+					std::cout << "\x1b[B\x1b[2D\xdb\xdb";
+					for (uint8_t k = 0; k < i; k++) {
+						std::cout << "\x1b[B\x1b[2D\xdb\xdb";
+					}
+
+					//left --> right
+					std::cout << "\x1b[4D\xdb\xdb";
+					std::cout << "\x1b[4D\xdb\xdb";
+					for (uint8_t k = 0; k < i; k++) {
+						std::cout << "\x1b[4D\xdb\xdb";
+					}
+
+					//bottom --> top
+					std::cout << "\x1b[A\x1b[2D\xdb\xdb";
+					std::cout << "\x1b[A\x1b[2D\xdb\xdb";
+					for (uint8_t k = 0; k < i; k++) {
+						std::cout << "\x1b[A\x1b[2D\xdb\xdb";
+					}
+
+					Sleep(200 - i * 20);
+				}
+
+				short eight = 8;
+				for (short i = world_size - 1; i >= 0; --i) {
+					for (short j = 0; j < world_size; j++) {
+						std::cout << "\x1b[" << ((world_size - i) * 8) - 5 << ";" << j * 16 + 1 << "H";
+						draw_block(&eight);
+					}
+				}
+
+				got_gold = true;
+				gameover = true;
+			}
+
+			//reset background color + scrollbar
+			ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
+			std::cout << "\x1b[0m";
 		}
 	}
 }
@@ -578,6 +776,21 @@ void redraw_map() {
 	ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
 }
 
+//restart checker function
+bool check_for_restart() {
+	while (!(GetKeyState(VK_ESCAPE) & 0x8000)) {
+		if (GetKeyState(VK_RETURN) & 0x8000) {
+			gameover = 0;
+			fell_in_pit = 0;
+			met_wumpus = 0;
+			got_gold = 0;
+			map.clear();
+			return true;
+		}
+	}
+	return false;
+}
+
 //main function
 int main() {
 
@@ -595,7 +808,7 @@ int main() {
 		while (!gameover) {
 			Sleep(33);
 			//as long as nothing bad happens
-			if (!met_wumpus && !fell_in_pit) {
+			if (!met_wumpus && !fell_in_pit && !got_gold) {
 				player.walk(&x, &y, &old_x, &old_y, &world_size);
 				if (x != old_x || y != old_y) {
 					map.update(x, y, old_x, old_y);
@@ -612,14 +825,8 @@ int main() {
 		draw_gameover();
 
 		//check for restart
-		while (!(GetKeyState(VK_ESCAPE) & 0x8000)) {
-			if (GetKeyState(VK_RETURN) & 0x8000) {
-				gameover = 0;
-				fell_in_pit = 0;
-				met_wumpus = 0;
-				map.clear();
-				main();
-			}
+		if (check_for_restart()) {
+			main();
 		}
 	}
 
