@@ -3,6 +3,7 @@
 #define AGENT_LOCAL_H
 
 #include "agent_base.h"
+#include <time.h>
 
 class agent_local : public agent_base{
 public:
@@ -11,6 +12,7 @@ public:
 	void walk(short* new_x, short* new_y, short* old_x, short* old_y, short* world_size);
 	void enable_walking() { walking_enabled = true; };
 	void disable_walking() { walking_enabled = false; };
+	clock_t last_input = clock();
 private:
 	bool walking_enabled = true;
 };

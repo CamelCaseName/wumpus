@@ -30,13 +30,13 @@
 /// or i couold change the code page *shrug*
 /// </disclaimer2>
 
-short world_size = 4, x = 0, y = 0, old_x = 0, old_y = 0; //agent position variables
+short world_size = 10, x = 0, y = 0, old_x = 0, old_y = 0; //agent position variables
 world map;
 agent_local player;
 HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
 CONSOLE_SCREEN_BUFFER_INFO s;
 COORD console_buffer_size;
-bool player_walk_animation = 0, gameover = 0, fell_in_pit = 0, met_wumpus = 0, got_gold = 0;
+bool player_walk_animation = 0, gameover = 0, fell_in_pit = 0, met_wumpus = 0, got_gold = 0, esc_ended = 0;
 
 //closes the console window when ctrl+c is called
 BOOL WINAPI ConsoleHandler(DWORD ctrl_type) {
@@ -98,7 +98,7 @@ void initialize_map() {
 	}
 
 	//fill map randomly
-	if (map.default_fill()) { //change to random fill
+	if (map.random_fill()) { //change to random fill
 		//map filled ok
 	}
 	else {
@@ -106,8 +106,7 @@ void initialize_map() {
 	}
 }
 
-//clears and prepares the console screen
-//see https://docs.microsoft.com/en-us/windows/console/console-functions
+//clears and prepares the console screen, see https://docs.microsoft.com/en-us/windows/console/console-functions
 void initialize_console() {
 	//vars and flags and so on
 	CONSOLE_CURSOR_INFO cursor_info;
@@ -153,6 +152,7 @@ void initialize_console() {
 	console_buffer_size.X = world_size * 16;
 	console_buffer_size.Y = (world_size * 8) + 2;
 	SetConsoleScreenBufferSize(console, console_buffer_size);
+	std::cout << "\x1b[3;" << console_buffer_size.Y << "r";
 	printf("adjusted buffer size : %d x %d, fontsize = %d x %d", console_buffer_size.X, console_buffer_size.Y, GetConsoleFontSize(console, console_font.nFont).X, GetConsoleFontSize(console, console_font.nFont).Y);
 
 	//display game title (now with colors)
@@ -244,14 +244,22 @@ void pit_ending_draw() {
 }
 
 //draws a square of size size at the current cursor position
-void draw_block(short* size) {
-	for (short k = 0; k < *size; k++) {
-		for (short i = 0; i < *size; i++) {
-			std::cout << "\xdb\xdb";
-		}
-		std::cout << "\x1b[" << (*size * 2) << "D\x1b[B";
+void draw_block(double* size) {
+	//round double
+	if (*size == 0.5) {
+		std::cout << "\xdb";
 	}
-	std::cout << "\x1b[" << *size << "C\x1b[" << *size << "A";
+	else {
+		*size = (double)(int)(*size + 0.5);
+
+		for (short k = 0; k < *size; k++) {
+			for (short i = 0; i < *size; i++) {
+				std::cout << "\xdb\xdb";
+			}
+			std::cout << "\x1b[" << (*size * 2) << "D\x1b[B";
+		}
+		std::cout << "\x1b[" << *size << "C\x1b[" << *size << "A";
+	}
 }
 
 //draws from a bmp file to the console
@@ -261,22 +269,26 @@ void draw_from_bmp(char* path) {
 	try {
 		BMP in(path);
 		uint8_t channels = in.bmp_info_header.bit_count / 8;
-		short square_size = 0;
+		double square_size = 0;
 
 		//move cursor to lowest point
 		std::cout << "\x1b[2;0H\x1b[40;22m";
 
 		//fill all cells with emptyness
-		for (short i = 2; i <= console_buffer_size.Y; i++) {
-			for (short k = 0; k < console_buffer_size.X; k++) {
-				std::cout << " ";
-			}
-			//move cursor down one line to the beginning
-			std::cout << "\x1b[B\x1b[" << console_buffer_size.X << "D";
+		for (uint8_t i = 2; i < console_buffer_size.Y; i++) {
+			std::cout << "\x1b[2K\x1b[B";
 		}
 
 		//change size depending on picture resolution
-		square_size = (short)(console_buffer_size.X / (in.bmp_info_header.width));
+		if (console_buffer_size.X > 110) {
+			square_size = (short)(console_buffer_size.X / (in.bmp_info_header.width));
+			if (square_size > 2) {
+				square_size = 2;
+			}
+		}
+		else {
+			square_size = .5;
+		}
 		std::cout << "\x1b[2;0H";
 
 		//iterate through pixels and display them
@@ -289,7 +301,12 @@ void draw_from_bmp(char* path) {
 					std::cout << "\x1b[38;2;" << (unsigned short)in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 2];
 					std::cout << ";" << (unsigned short)in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 1];
 					std::cout << ";" << (unsigned short)in.data[channels * ((in.bmp_info_header.height - y - 1) * in.bmp_info_header.width + x) + 0] << "m";
-					std::cout << "\x1b[" << y * square_size + 2 << ";" << x * square_size * 2 << "H";
+					if (square_size > 0.5) {
+						std::cout << "\x1b[" << y * (int)(square_size + .5) + 3 << ";" << x * (int)(square_size + 0.5) * 2 << "H";
+					}
+					else {
+						std::cout << "\x1b[" << y * (int)(square_size + .5) + 3 << ";" << x * (int)(square_size + 0.5) << "H";
+					}
 					draw_block(&square_size);
 				}
 			}
@@ -308,17 +325,12 @@ void draw_from_bmp(char* path) {
 
 //draws the game over screen
 void draw_gameover() {
-	short square_size = 0;
 	//move cursor to lowest point
 	std::cout << "\x1b[2;0H\x1b[40;22m";
 
 	//fill all cells with emptyness
-	for (short i = 2; i <= console_buffer_size.Y; i++) {
-		for (short k = 0; k < console_buffer_size.X; k++) {
-			std::cout << " ";
-		}
-		//move cursor down one line to the beginning
-		std::cout << "\x1b[B\x1b[" << console_buffer_size.X << "D";
+	for (uint8_t i = 2; i < console_buffer_size.Y; i++) {
+		std::cout << "\x1b[2K\x1b[B";
 	}
 
 	//display a end screen when falling into a pit
@@ -341,7 +353,7 @@ void draw_gameover() {
 			draw_from_bmp((char*)"gold1.bmp");
 		}
 		else {
-			draw_from_bmp((char*)"gold1.bmp");
+			draw_from_bmp((char*)"gold2.bmp");
 		}
 	}
 
@@ -354,6 +366,9 @@ void draw_gameover() {
 
 //draws a single cell https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
 void draw_cell(short x, short y) {
+
+	COORD T{ x,y };
+	SetConsoleCursorPosition(console, T);
 
 	//some drawing magic (code looks shit, but works flawless)
 	std::cout << "\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
@@ -481,8 +496,12 @@ void draw_cell(short x, short y) {
 		//if the cell has the WUMPUS in it...
 		else if (map.get_cell(x, y) & WUMPUS) {
 			//set end screen var plus disable movement
-			met_wumpus = 1;
+			met_wumpus = true;
 			player.disable_walking();
+
+			//todo add wumpus
+
+			gameover = true;
 		}
 
 		//"normal" cell
@@ -594,7 +613,7 @@ void draw_cell(short x, short y) {
 				//left = 1, top = 2, right = 4, bottom = 8
 				uint8_t border = 0, i_at_border_hit = 0;
 
-				Sleep(300);
+				Sleep(500);
 
 				//set colors plus move cursor to the correct position
 				std::cout << "\x1b[33;1m\x1b[43;1m\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H\x1b[3B\x1b[6C";
@@ -735,10 +754,10 @@ void draw_cell(short x, short y) {
 						std::cout << "\x1b[A\x1b[2D\xdb\xdb";
 					}
 
-					Sleep(200 - i * 20);
+					Sleep(200 - i * 15);
 				}
 
-				short eight = 8;
+				double eight = 8;
 				for (short i = world_size - 1; i >= 0; --i) {
 					for (short j = 0; j < world_size; j++) {
 						std::cout << "\x1b[" << ((world_size - i) * 8) - 5 << ";" << j * 16 + 1 << "H";
@@ -746,6 +765,7 @@ void draw_cell(short x, short y) {
 					}
 				}
 
+				//vars for game end
 				got_gold = true;
 				gameover = true;
 			}
@@ -759,14 +779,21 @@ void draw_cell(short x, short y) {
 
 //puts the map in the console
 void draw_map() {
-	COORD pos = { 0,2 };
-	SetConsoleCursorPosition(console, pos);
-	for (short i = world_size - 1; i >= 0; --i) {
-		for (short j = 0; j < world_size; j++) {
-			//printf("%d,%d:%d ", i - 1, j, (int)map.get_cell(i - 1, j));
-			draw_cell(j, i);
+	std::cout << "\x1b[2;0H";
+
+	if (console_buffer_size.Y < GetSystemMetrics(SM_CYSCREEN) / 8) {
+		//iterate through all cells and output them
+		for (short i = world_size - 1; i >= 0; --i) {
+			for (short j = 0; j < world_size; j++) {
+				//printf("%d,%d:%d ", i - 1, j, (int)map.get_cell(i - 1, j));
+				draw_cell(j, i);
+			}
 		}
 	}
+	else {
+
+	}
+
 	ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
 }
 
@@ -784,6 +811,7 @@ bool check_for_restart() {
 			fell_in_pit = 0;
 			met_wumpus = 0;
 			got_gold = 0;
+			esc_ended = 0;
 			map.clear();
 			return true;
 		}
@@ -803,21 +831,30 @@ int main() {
 		player.set_x_position(0);
 		player.set_y_position(0);
 		player.enable_walking();
+		//esc_ended = GetKeyState(VK_ESCAPE);
 
 		//main game loop
-		while (!gameover) {
+		while (!gameover && !esc_ended) {
 			Sleep(33);
+			//output funny changing numbers
+			//std::cout << "\x1b""7\x1b[1;112H| player time: " << player.last_input << ", diff in seconds: " << (float)(clock() - player.last_input) << "\x1b""8";
 			//as long as nothing bad happens
 			if (!met_wumpus && !fell_in_pit && !got_gold) {
+				//input buffering/blocking is implemented in the agent class.
 				player.walk(&x, &y, &old_x, &old_y, &world_size);
+				//if the player did walk
 				if (x != old_x || y != old_y) {
 					map.update(x, y, old_x, old_y);
 					redraw_map();
-					Sleep(250);
 				}
 			}
 			else {
 				redraw_map();
+			}
+
+			//goto splash screen on m = menu, esc was bugged...
+			if (GetKeyState('M')) {
+				esc_ended = true;
 			}
 		}
 

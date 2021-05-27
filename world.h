@@ -13,6 +13,7 @@
 #include "cell.h"
 #include <vector>
 #include <iostream>
+#include <time.h>
 
 class world {
 public:
