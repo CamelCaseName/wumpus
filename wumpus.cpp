@@ -24,19 +24,19 @@
 
 
 /// <disclaimer2>
-/// i accidentally saved the file with unicode encoding, so now i have to replace all box drawing chars with the \x hex represenations. 
+/// i accidentally saved the file with unicode encoding, so now i have to replace all box drawing chars with their \x hex represenations. 
 /// LOOKS SHIT, but is necessary
 /// 
 /// or i couold change the code page *shrug*
 /// </disclaimer2>
 
-short world_size = 10, x = 0, y = 0, old_x = 0, old_y = 0; //agent position variables
+short world_size = 10, old_x = 0, old_y = 0; //agent position variables
 world map;
 agent_local player;
 HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
 CONSOLE_SCREEN_BUFFER_INFO s;
 COORD console_buffer_size;
-bool player_walk_animation = 0, gameover = 0, fell_in_pit = 0, met_wumpus = 0, got_gold = 0, esc_ended = 0;
+bool player_walk_animation = 0, gameover = 0, fell_in_pit = 0, met_wumpus = 0, got_gold = 0, esc_ended = 0, small_screen = 0;
 
 //closes the console window when ctrl+c is called
 BOOL WINAPI ConsoleHandler(DWORD ctrl_type) {
@@ -59,22 +59,22 @@ bool initialize_files() {
 			//create streams to write the files out
 			file_test.open("pit1.bmp", std::fstream::out | std::fstream::binary);
 			//should write the pit1 stream to the file
-			file_test.write(&pit1[0], static_cast<std::streamsize>(5994));
+			file_test.write(&pit1[0], static_cast<std::streamsize>(4758));
 			file_test.close();
 
 			//write second file
 			file_test.open("pit2.bmp", std::fstream::out | std::fstream::binary);
-			file_test.write(&pit2[0], static_cast<std::streamsize>(5994));
+			file_test.write(&pit2[0], static_cast<std::streamsize>(4054));
 			file_test.close();
 
 			//write third file
 			file_test.open("gold1.bmp", std::fstream::out | std::fstream::binary);
-			file_test.write(&gold1[0], static_cast<std::streamsize>(5814));
+			file_test.write(&gold1[0], static_cast<std::streamsize>(4758));
 			file_test.close();
 
 			//write fourth file
 			file_test.open("gold2.bmp", std::fstream::out | std::fstream::binary);
-			file_test.write(&gold2[0], static_cast<std::streamsize>(5814));
+			file_test.write(&gold2[0], static_cast<std::streamsize>(4758));
 			file_test.close();
 
 			//return true to say "ok, we did it!!!!"
@@ -97,12 +97,13 @@ void initialize_map() {
 		map.set_size(4);
 	}
 
+
 	//fill map randomly
 	if (map.random_fill()) { //change to random fill
 		//map filled ok
 	}
 	else {
-		//map filled with an error, fix!
+		ExitProcess(1);
 	}
 }
 
@@ -143,20 +144,27 @@ void initialize_console() {
 
 	//get console buffer and font and stuff
 	GetCurrentConsoleFontEx(console, false, &console_font);
-	console_buffer_size.X = GetSystemMetrics(SM_CXSCREEN) / GetConsoleFontSize(console, console_font.nFont).X;
+	console_buffer_size.X = GetSystemMetrics(SM_CXSCREEN) / GetConsoleFontSize(console, console_font.nFont).X - 4;
 	console_buffer_size.Y = GetSystemMetrics(SM_CYSCREEN) / GetConsoleFontSize(console, console_font.nFont).Y;
 	SetConsoleCursorPosition(console, tl);
-	printf("original buffer size : %d x %d, displaysize: %d x %d, ", console_buffer_size.X, console_buffer_size.Y, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
+	//printf("original buffer size : %d x %d, displaysize: %d x %d, ", console_buffer_size.X, console_buffer_size.Y, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
 
 	//adjust to 8x8 char size of a cell
-	console_buffer_size.X = world_size * 16;
-	console_buffer_size.Y = (world_size * 8) + 2;
-	SetConsoleScreenBufferSize(console, console_buffer_size);
-	std::cout << "\x1b[3;" << console_buffer_size.Y << "r";
-	printf("adjusted buffer size : %d x %d, fontsize = %d x %d", console_buffer_size.X, console_buffer_size.Y, GetConsoleFontSize(console, console_font.nFont).X, GetConsoleFontSize(console, console_font.nFont).Y);
+	if ((world_size * 8) + 2 < console_buffer_size.Y) {
+		console_buffer_size.X = world_size * 16;
+		console_buffer_size.Y = (world_size * 8) + 2;
+		SetConsoleScreenBufferSize(console, console_buffer_size);
+	}
+	else {
+		small_screen = true;
+	}
+	//printf("adjusted buffer size : %d x %d, fontsize = %d x %d", console_buffer_size.X, console_buffer_size.Y, GetConsoleFontSize(console, console_font.nFont).X, GetConsoleFontSize(console, console_font.nFont).Y);
+
+	//set scrolling margins
+	//std::cout << "\x1b[3;" << console_buffer_size.Y << "r";
 
 	//display game title (now with colors)
-	std::cout << "\x1b[2;0H";
+	std::cout << "\x1b[1;0H";
 	float frequency = .3f;
 	short r, g, b;
 	//printf("\x1b[38;2;255;100;0mTRUECOLOR\x1b[0m\n");
@@ -185,10 +193,23 @@ void initialize_console() {
 
 }
 
+void clear_screen() {
+	//fill all cells with emptyness
+	std::cout << "\x1b[2;0H";
+	for (uint8_t i = 2; i < console_buffer_size.Y + 2; i++) {
+		std::cout << "\x1b[2K\x1b[B";
+	}
+}
+
 //draws the pit
-void pit_ending_draw() {
+void pit_ending_draw(short x, short y) {
 	//move cursor back to cell beginning
-	std::cout << "\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
+	if (small_screen) {
+		std::cout << "\x1b[" << ((3 - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
+	}
+	else {
+		std::cout << "\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
+	}
 
 	//if cell is at the top world border
 	if (y == world_size - 1) {
@@ -223,7 +244,7 @@ void pit_ending_draw() {
 
 
 	std::cout << "\xdb\xdb\xb2\xb2\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb2\xb2\xdb\xdb\x1b[16D\x1b[B";
-	std::cout << "\xdb\xdb" << x << "," << y;
+	std::cout << "\xdb\xdb" << player.get_x_position() << "," << player.get_y_position();
 	//adjustement for 2 space wide numbers
 	for (short i = 0; i < 2 - (short)x / 10; i++) {
 		std::cout << "\xb2";
@@ -271,13 +292,7 @@ void draw_from_bmp(char* path) {
 		uint8_t channels = in.bmp_info_header.bit_count / 8;
 		double square_size = 0;
 
-		//move cursor to lowest point
-		std::cout << "\x1b[2;0H\x1b[40;22m";
-
-		//fill all cells with emptyness
-		for (uint8_t i = 2; i < console_buffer_size.Y; i++) {
-			std::cout << "\x1b[2K\x1b[B";
-		}
+		clear_screen();
 
 		//change size depending on picture resolution
 		if (console_buffer_size.X > 110) {
@@ -289,7 +304,7 @@ void draw_from_bmp(char* path) {
 		else {
 			square_size = .5;
 		}
-		std::cout << "\x1b[2;0H";
+		std::cout << "\x1b[2;1H";
 
 		//iterate through pixels and display them
 		for (uint8_t y = 0; y < in.bmp_info_header.height; y++) {
@@ -328,10 +343,7 @@ void draw_gameover() {
 	//move cursor to lowest point
 	std::cout << "\x1b[2;0H\x1b[40;22m";
 
-	//fill all cells with emptyness
-	for (uint8_t i = 2; i < console_buffer_size.Y; i++) {
-		std::cout << "\x1b[2K\x1b[B";
-	}
+	clear_screen();
 
 	//display a end screen when falling into a pit
 	if (fell_in_pit) {
@@ -361,14 +373,14 @@ void draw_gameover() {
 	Sleep(1000);
 
 	//draw keybinds for exiting/restarting
-	std::cout << "\x1b[2;24H\x1b[30;1;47mPRESS ESC TO END THE GAME, PRESS RETURN TO RESTART\x1b[0m";
+	std::cout << "\x1b[2;" << (console_buffer_size.X - 50) / 2 << "H\x1b[30;1;47mPRESS ESC TO END THE GAME, PRESS RETURN TO RESTART\x1b[0m";
 }
 
 //draws a single cell https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
 void draw_cell(short x, short y) {
 
-	COORD T{ x,y };
-	SetConsoleCursorPosition(console, T);
+	//COORD T{ x,y };
+	//SetConsoleCursorPosition(console, T);
 
 	//some drawing magic (code looks shit, but works flawless)
 	std::cout << "\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
@@ -425,63 +437,50 @@ void draw_cell(short x, short y) {
 			//move cursor to lowest point
 			std::cout << "\x1b[2;0H\x1b[40;22m";
 
-			//fill all cells with emptyness
-			for (short i = 2; i <= console_buffer_size.Y; i++) {
-				for (short k = 0; k < console_buffer_size.X; k++) {
-					std::cout << " ";
-				}
-				//move cursor back down one line to the beginning
-				std::cout << "\x1b[B\x1b[" << console_buffer_size.X << "D";
-			}
+			clear_screen();
 
 			//move cursor back to cell beginning
 			std::cout << "\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
 
-			pit_ending_draw();
+			pit_ending_draw(x, y);
 
 			//draw agent over cell, is easier then always checking in every line (saves ifs)
-			if (map.get_cell(x, y) & AGENT) {
-				if (player_walk_animation) {
-					std::cout << "\x1b[38;2;0;128;0m\x1b[2B\x1b[8D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
-				}
-				else {
-					std::cout << "\x1b[38;2;0;128;0m\x1b[2B\x1b[8D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
-				}
+			if (player_walk_animation) {
+				std::cout << "\x1b[38;2;0;128;0m\x1b[2B\x1b[8D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+			}
+			else {
+				std::cout << "\x1b[38;2;0;128;0m\x1b[2B\x1b[8D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
 			}
 
 			//delay next frame
 			Sleep(300);
 
 			//draw next frame
-			pit_ending_draw();
-			if (map.get_cell(x, y) & AGENT) {
-				if (player_walk_animation) {
-					std::cout << "\x1b[38;2;0;64;0m\x1b[3B\x1b[8D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[37m\x1b[6A\x1b[2C";
-				}
-				else {
-					std::cout << "\x1b[38;2;0;64;0m\x1b[3B\x1b[8D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[37m\x1b[6A\x1b[2C";
-				}
+			pit_ending_draw(x, y);
+			if (player_walk_animation) {
+				std::cout << "\x1b[38;2;0;64;0m\x1b[3B\x1b[8D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[37m\x1b[6A\x1b[2C";
+			}
+			else {
+				std::cout << "\x1b[38;2;0;64;0m\x1b[3B\x1b[8D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[37m\x1b[6A\x1b[2C";
 			}
 
 			//delay next frame
 			Sleep(300);
 
 			//draw next frame
-			pit_ending_draw();
-			if (map.get_cell(x, y) & AGENT) {
-				if (player_walk_animation) {
-					std::cout << "\x1b[38;2;;32;0m\x1b[4B\x1b[8D\x01\x1b[37m\x1b[6A\x1b[2C";
-				}
-				else {
-					std::cout << "\x1b[38;2;0;32;0m\x1b[4B\x1b[8D\x01\x1b[37m\x1b[6A\x1b[2C";
-				}
+			pit_ending_draw(x, y);
+			if (player_walk_animation) {
+				std::cout << "\x1b[38;2;;32;0m\x1b[4B\x1b[8D\x01\x1b[37m\x1b[6A\x1b[2C";
+			}
+			else {
+				std::cout << "\x1b[38;2;0;32;0m\x1b[4B\x1b[8D\x01\x1b[37m\x1b[6A\x1b[2C";
 			}
 
 			//delay next frame
 			Sleep(300);
 
 			//draw next frame
-			pit_ending_draw();
+			pit_ending_draw(x, y);
 
 			//give player some time to think about their actions
 			Sleep(500);
@@ -552,9 +551,6 @@ void draw_cell(short x, short y) {
 
 			//if the cell is breezy
 			if (map.get_cell(x, y) & 3/*3 becuase it checks the first 2 bytes, and we can reach 3 breezes, but not 4*/) {
-				if (map.get_cell(x, y) & AGENT) {
-
-				}
 				std::cout << "\xdb\xdb\x1b[36m\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
 				std::cout << "\xdb\xdb" << x << "," << y << "\x1b[36m";
 				//adjustement for 2 space wide numbers
@@ -617,7 +613,8 @@ void draw_cell(short x, short y) {
 
 				//set colors plus move cursor to the correct position
 				std::cout << "\x1b[33;1m\x1b[43;1m\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H\x1b[3B\x1b[6C";
-				/*for (uint8_t i = 1; i < world_size * 8 + 6; i += 2) { //takes 4 + 1 cylces (<6) to fill the cell with the gold
+				/*
+				for (uint8_t i = 1; i < world_size * 8 + 6; i += 2) { //takes 4 + 1 cylces (<6) to fill the cell with the gold
 					//after 4 cycles, cell is filled. plus 8 more, we fill the next
 
 					//some really fucked up shit that just miraculously works (sometimes) ¯\_(ツ)_/¯ v0.1
@@ -777,21 +774,461 @@ void draw_cell(short x, short y) {
 	}
 }
 
+//draws the cells for the smaller map
+void draw_cell_small(short x, short y, short map_x, short map_y) {
+
+	//edge case problem detection and mitigation
+	if (x * 16 + 1 != 49) {
+
+		//some drawing magic (code looks shit, but works flawless)
+		std::cout << "\x1b[" << ((3 - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
+
+		//if cell is not visited, i.e. not discovered
+		if (!(map.get_cell(map_x, map_y) & VISITED)) {
+			if (map_y == world_size - 1) {
+				std::cout << "\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\x1b[16D\x1b[B";
+			}
+			else {
+				std::cout << "\xb1\xb1\xb1\xb1\xb1\xb1\xb5  \xc6\xb1\xb1\xb1\xb1\xb1\xb1\x1b[16D\x1b[B";
+			}
+
+			std::cout << "\xb1\xb1            \xb1\xb1\x1b[16D\x1b[B";
+			std::cout << "\xb1\xb1            \xb1\xb1\x1b[16D\x1b[B";
+			if (map_x == 0) {
+				std::cout << "\xb1\xb1            \xd0\xd0\x1b[16D\x1b[B";
+				std::cout << "\xb1\xb1            \xd2\xd2\x1b[16D\x1b[B";
+			}
+			else {
+				std::cout << "\xd0\xd0      ";
+				if (map_x == world_size - 1) {
+					std::cout << "      \xb1\xb1\x1b[16D\x1b[B";
+					std::cout << "\xd2\xd2            \xb1\xb1\x1b[16D\x1b[B";
+				}
+				else {
+					std::cout << "      \xd0\xd0\x1b[16D\x1b[B";
+					std::cout << "\xd2\xd2            \xd2\xd2\x1b[16D\x1b[B";
+				}
+			}
+			std::cout << "\xb1\xb1            \xb1\xb1\x1b[16D\x1b[B";
+			std::cout << "\xb1\xb1" << map_x << "," << map_y;
+			for (short i = 0; i < (1 - (short)(map_x / 10)) + (map_x >= 0); i++) {
+				std::cout << " ";
+			}
+			for (short i = 0; i < (1 - (short)(map_y / 10)) + (map_y >= 0); i++) {
+				std::cout << " ";
+			}
+			std::cout << "     \xb1\xb1\x1b[16D\x1b[B";
+			if (map_y == 0) {
+				std::cout << "\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\x1b[7A";
+			}
+			else {
+				std::cout << "\xb1\xb1\xb1\xb1\xb1\xb1\xb5  \xc6\xb1\xb1\xb1\xb1\xb1\xb1\x1b[7A";
+			}
+		}
+		else {
+			//if the cell is a pit
+			if (map.get_cell(map_x, map_y) & PIT) {
+				//set end screen var plus disable movement
+				fell_in_pit = 1;
+				player.disable_walking();
+
+				//move cursor to lowest point
+				std::cout << "\x1b[2;0H\x1b[40;22m";
+
+				clear_screen();
+
+				//move cursor back to cell beginning
+				std::cout << "\x1b[" << ((3 - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
+
+				pit_ending_draw(x, y);
+
+				//draw agent over cell, is easier then always checking in every line (saves ifs)
+				if (player_walk_animation) {
+					std::cout << "\x1b[38;2;0;128;0m\x1b[2B\x1b[8D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+				}
+				else {
+					std::cout << "\x1b[38;2;0;128;0m\x1b[2B\x1b[8D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+				}
+
+				//delay next frame
+				Sleep(300);
+
+				//draw next frame
+				pit_ending_draw(x, y);
+				if (player_walk_animation) {
+					std::cout << "\x1b[38;2;0;64;0m\x1b[3B\x1b[8D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[37m\x1b[6A\x1b[2C";
+				}
+				else {
+					std::cout << "\x1b[38;2;0;64;0m\x1b[3B\x1b[8D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[37m\x1b[6A\x1b[2C";
+				}
+
+				//delay next frame
+				Sleep(300);
+
+				//draw next frame
+				pit_ending_draw(x, y);
+				if (player_walk_animation) {
+					std::cout << "\x1b[38;2;0;32;0m\x1b[4B\x1b[8D\x01\x1b[37m\x1b[6A\x1b[2C";
+				}
+				else {
+					std::cout << "\x1b[38;2;0;32;0m\x1b[4B\x1b[8D\x01\x1b[37m\x1b[6A\x1b[2C";
+				}
+
+				//delay next frame
+				Sleep(300);
+
+				//draw next frame
+				pit_ending_draw(x, y);
+
+				//give player some time to think about their actions
+				Sleep(500);
+
+				//reset background color
+				std::cout << "\x1b[40;22m";
+
+				//game ends
+				gameover = 1;
+			}
+
+			//if the cell has the WUMPUS in it...
+			else if (map.get_cell(map_x, map_y) & WUMPUS) {
+				//set end screen var plus disable movement
+				met_wumpus = true;
+				player.disable_walking();
+
+				//todo add wumpus
+
+				gameover = true;
+			}
+
+			//"normal" cell
+			else {
+				//set background color
+				std::cout << "\x1b[48;2;30;30;30m";
+
+				//if cell is at the top world border
+				if (map_y == world_size - 1) {
+					std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\x1b[16D\x1b[B";
+				}
+				else {
+					std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xb5  \xc6\xdb\xdb\xdb\xdb\xdb\xdb\x1b[16D\x1b[B";
+				}
+
+				//if cell has stench
+				if (map.get_cell(map_x, map_y) & STENCH) {
+					std::cout << "\xdb\xdb\x1b[33m\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\xb1\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
+					std::cout << "\xdb\xdb\x1b[33m\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
+				}
+				else {
+					std::cout << "\xdb\xdb            \xdb\xdb\x1b[16D\x1b[B";
+					std::cout << "\xdb\xdb            \xdb\xdb\x1b[16D\x1b[B";
+				}
+
+				//if cell is at the left world border
+				if (map_x == 0) {
+					std::cout << "\xdb\xdb            \xd0\xd0\x1b[16D\x1b[B";
+					std::cout << "\xdb\xdb            \xd2\xd2\x1b[16D\x1b[B";
+				}
+				else {
+					std::cout << "\xd0\xd0      ";
+					//if cell is at the right world border
+					if (map_x == world_size - 1) {
+						std::cout << "      \xdb\xdb\x1b[16D\x1b[B";
+						std::cout << "\xd2\xd2            \xdb\xdb\x1b[16D\x1b[B";
+					}
+					else {
+						std::cout << "      \xd0\xd0\x1b[16D\x1b[B";
+						std::cout << "\xd2\xd2            \xd2\xd2\x1b[16D\x1b[B";
+					}
+				}
+
+				//if the cell has the gold
+				if (map.get_cell(map_x, map_y) & GOLD) {
+					std::cout << "\x1b[6C\x1b[2A\x1b[33;1m\x1b[48;2;81;77;47m    \x1b[B\x1b[4D\xf0\xdc\xdb\xf0\x1b[10D\x1b[B\x1b[37;22m\x1b[48;2;30;30;30m";
+				}
+
+				//if the cell is breezy
+				if (map.get_cell(map_x, map_y) & 3/*3 becuase it checks the first 2 bytes, and we can reach 3 breezes, but not 4*/) {
+					std::cout << "\xdb\xdb\x1b[36m\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\xb0\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
+					std::cout << "\xdb\xdb" << map_x << "," << map_y << "\x1b[36m";
+					//adjustement for 2 space wide numbers
+					for (short i = 0; i < (1 - (short)(map_x / 10)) + (map_x >= 0); i++) {
+						std::cout << "\xb1";
+					}
+					for (short i = 0; i < (1 - (short)(map_y / 10)) + (map_y >= 0); i++) {
+						std::cout << "\xb1";
+					}
+					std::cout << "\xb1\xb1\xb1\xb1\xb1\x1b[37m\xdb\xdb\x1b[16D\x1b[B";
+				}
+				else {
+					std::cout << "\xdb\xdb            \xdb\xdb\x1b[16D\x1b[B";
+					std::cout << "\xdb\xdb" << map_x << "," << map_y;
+					//adjustement for 2 space wide numbers
+					for (short i = 0; i < (1 - (short)(map_x / 10)) + (map_x >= 0); i++) {
+						std::cout << " ";
+					}
+					for (short i = 0; i < (1 - (short)(map_y / 10)) + (map_y >= 0); i++) {
+						std::cout << " ";
+					}
+					std::cout << "     \xdb\xdb\x1b[16D\x1b[B";
+				}
+
+				//if cell is at the lower world border
+				if (map_y == 0) {
+					std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\x1b[7A";
+				}
+				else {
+					std::cout << "\xdb\xdb\xdb\xdb\xdb\xdb\xb5  \xc6\xdb\xdb\xdb\xdb\xdb\xdb\x1b[7A";
+				}
+
+				//draw agent over cell, is easier then always checking in every line (saves ifs)
+				if (map.get_cell(map_x, map_y) & AGENT) {
+					if (player_walk_animation) {
+						player_walk_animation = 0;
+						std::cout << "\x1b[32m\x1b[4B\x1b[4D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+					}
+					else {
+						player_walk_animation = 1;
+						std::cout << "\x1b[32m\x1b[4B\x1b[4D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+					}
+				}
+
+				if (map.get_cell(map_x, map_y) & GOLD) {
+					//set end screen var plus disable movement
+					got_gold = 1;
+					player.disable_walking();
+
+					//left = 1, top = 2, right = 4, bottom = 8
+					uint8_t border = 0, i_at_border_hit = 0;
+
+					Sleep(500);
+
+					//set colors plus move cursor to the correct position
+					std::cout << "\x1b[33;1m\x1b[43;1m\x1b[" << ((3 - y) * 8) - 5 << ";" << x * 16 + 1 << "H\x1b[3B\x1b[6C";
+
+					for (uint8_t i = 1; i < 6; i += 2) { //takes 4 + 1 cylces (<6) to fill the cell with the gold
+
+						//some really fucked up shit that just miraculously works (sometimes) ¯\_(ツ)_/¯ v0.5
+						//right --> left
+						if (i == 1) {
+							//fill central square
+							std::cout << "\x1b[2C\xdb\xdb\x1b[4D\xdb\xdb\x1b[2D";
+							std::cout << "\x1b[B\x1b[2C\xdb\xdb\x1b[4D\xdb\xdb\x1b[2D\x1b[2A";
+						}
+						else {
+							std::cout << "\x1b[A\x1b[2D";
+						}
+						std::cout << "\xdb\xdb\xdb\xdb";
+						for (uint8_t k = 0; k < i; k++) {
+							std::cout << "\xdb\xdb";
+						}
+
+						//top --> bottom
+						std::cout << "\x1b[B\x1b[2D\xdb\xdb";
+						std::cout << "\x1b[B\x1b[2D\xdb\xdb";
+						for (uint8_t k = 0; k < i; k++) {
+							std::cout << "\x1b[B\x1b[2D\xdb\xdb";
+						}
+
+						//left --> right
+						std::cout << "\x1b[4D\xdb\xdb";
+						std::cout << "\x1b[4D\xdb\xdb";
+						for (uint8_t k = 0; k < i; k++) {
+							std::cout << "\x1b[4D\xdb\xdb";
+						}
+
+						//bottom --> top
+						std::cout << "\x1b[A\x1b[2D\xdb\xdb";
+						std::cout << "\x1b[A\x1b[2D\xdb\xdb";
+						for (uint8_t k = 0; k < i; k++) {
+							std::cout << "\x1b[A\x1b[2D\xdb\xdb";
+						}
+
+						Sleep(200 - i * 15);
+					}
+
+					double eight = 8;
+					for (short i = 2; i >= 0; --i) {
+						for (short j = 0; j < 3; j++) {
+							std::cout << "\x1b[" << ((3 - i) * 8) - 5 << ";" << j * 16 + 1 << "H";
+							draw_block(&eight);
+						}
+					}
+
+					//vars for game end
+					got_gold = true;
+					gameover = true;
+				}
+
+				//reset background color + scrollbar
+				ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
+				std::cout << "\x1b[0m";
+			}
+		}
+	}
+}
+
 //puts the map in the console
 void draw_map() {
 	std::cout << "\x1b[2;0H";
 
-	if (console_buffer_size.Y < GetSystemMetrics(SM_CYSCREEN) / 8) {
-		//iterate through all cells and output them
-		for (short i = world_size - 1; i >= 0; --i) {
-			for (short j = 0; j < world_size; j++) {
-				//printf("%d,%d:%d ", i - 1, j, (int)map.get_cell(i - 1, j));
-				draw_cell(j, i);
+	//iterate through all cells and output them
+	for (short i = world_size - 1; i >= 0; --i) {
+		for (short j = 0; j < world_size; j++) {
+			draw_cell(j, i);
+		}
+	}
+
+	ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
+}
+
+//draw the 3x3 set of cells on a small screen
+void draw_map_small() {
+
+	//edge cases in clockwise direction
+	// MIN: < 2
+	// MID: >= 2 && < world_size - 2
+	// MAX: >= world_size - 2
+	// 
+	// XMIN YMIN ok
+	// XMIN YMID ok
+	// XMIN YMAX ok
+	// XMID YMAX ok
+	// XMAX YMAX no
+	// XMAX YMID no
+	// XMAX YMIN no
+	// XMID YMIN ok
+	// default case:
+	// XMID YMID ok
+
+	// XMIN YMIN  | works!
+	if (player.get_x_position() < 2 && player.get_y_position() < 2) {
+		//std::cout << "\x1b""7\x1b[1;112H MODE: XMIN YMIN\x1b""8";
+		//iterate through a set of cells and output them
+		for (short i = 2; i >= 0; --i) {
+			for (short j = 0; j < 3; j++) {
+				draw_cell_small(j, i, j, i);
 			}
 		}
 	}
+	// XMIN YMID  | works!
+	else if (player.get_x_position() < 2 && player.get_y_position() >= 2 && player.get_y_position() < world_size - 2) {
+		//std::cout << "\x1b""7\x1b[1;112H MODE: XMIN YMID\x1b""8";
+		//iterate through a set of cells and output them
+		short k = 1;
+		for (short i = 2; i >= 0; --i) { //y loop
+			for (short j = 0; j < 3; j++) { //x loop
+				draw_cell_small(j, i, j, player.get_y_position() + k);
+			}
+			k--;
+		}
+	}
+	// XMIN YMAX  | works!
+	else if (player.get_x_position() < 2 && player.get_y_position() >= world_size - 2) {
+		//std::cout << "\x1b""7\x1b[1;112H MODE: XMIN YMAX\x1b""8";
+		//iterate through a set of cells and output them
+		short k = 1;
+		for (short i = 2; i >= 0; --i) { //y loop
+			for (short j = 0; j < 3; j++) { //x loop
+				draw_cell_small(j, i, j, world_size - k);
+			}
+			k++;
+		}
+	}
+	// XMID YMAX  | works!
+	else if (player.get_x_position() >= 2 && player.get_x_position() < world_size - 2 && player.get_y_position() >= world_size - 2) {
+		//std::cout << "\x1b""7\x1b[1;112H MODE: XMID YMAX\x1b""8";
+		//iterate through a set of cells and output them
+		short k = 1;
+		for (short i = 2; i >= 0; --i) { //y loop
+			short l = -1;
+			for (short j = 0; j < 3; j++) { //x loop
+				draw_cell_small(j, i, player.get_x_position() + l, world_size - k);
+				l++;
+			}
+			k++;
+		}
+	}
+	// XMAX YMAX  | works!
+	else if (player.get_x_position() >= world_size - 2 && player.get_y_position() >= world_size - 2) {
+		//std::cout << "\x1b""7\x1b[1;112H MODE: XMAX YMAX\x1b""8";
+		//iterate through a set of cells and output them
+		short k = 1;
+		for (short i = 2; i >= 0; --i) { //y loop
+			short l = 3;
+			for (short j = 0; j < 3; j++) { //x loop
+				draw_cell_small(j, i, world_size - l, world_size - k);
+				l--;
+			}
+			/*std::cout << "\x1b[" << ((3 - y) * 8) - 5 << ";49H\x1b[30m";
+			double eight = 8;
+			draw_block(&eight);
+			std::cout << "\x1b[0m";*/
+			k++;
+		}
+	}
+	// XMAX YMID  | works!
+	else if (player.get_x_position() >= world_size - 2 && player.get_y_position() >= 2 && player.get_y_position() < world_size - 2) {
+		//std::cout << "\x1b""7\x1b[1;112H MODE: XMAX YMID\x1b""8";
+		//iterate through a set of cells and output them
+		short k = 1;
+		for (short i = 2; i >= 0; --i) { //y loop
+			short l = 3;
+			for (short j = 0; j < 3; j++) { //x loop
+				draw_cell_small(j, i, world_size - l, player.get_y_position() + k);
+				l--;
+			}
+			/*std::cout << "\x1b[" << ((3 - y) * 8) - 5 << ";49H\x1b[30m";
+			double eight = 8;
+			draw_block(&eight);
+			std::cout << "\x1b[0m";*/
+			k--;
+		}
+	}
+	// XMAX YMIN  | works!
+	else if (player.get_x_position() >= world_size - 2 && player.get_y_position() < 2) {
+		//std::cout << "\x1b""7\x1b[1;112H MODE: XMAX YMIN\x1b""8";
+		//iterate through a set of cells and output them
+		short k = 1;
+		for (short i = 2; i >= 0; --i) { //y loop
+			short l = 3;
+			for (short j = 0; j < 3; j++) { //x loop
+				draw_cell_small(j, i, world_size - l, i);
+				l--;
+			}
+			/*std::cout << "\x1b[" << ((3 - y) * 8) - 5 << ";49H\x1b[30m";
+			double eight = 8;
+			draw_block(&eight);
+			std::cout << "\x1b[0m";*/
+			k--;
+		}
+	}
+	// XMID YMIN  | works!
+	else if (player.get_x_position() >= 2 && player.get_y_position() < 2) {
+		//std::cout << "\x1b""7\x1b[1;112H MODE: XMID YMIN\x1b""8";
+		//iterate through a set of cells and output them
+		short k = 1;
+		for (short i = 2; i >= 0; --i) { //y loop
+			short l = -1;
+			for (short j = 0; j < 3; j++) { //x loop
+				draw_cell_small(j, i, player.get_x_position() + l, i);
+				l++;
+			}
+			k--;
+		}
+	}
+	// default case XMID YMID | works!
 	else {
-
+		//std::cout << "\x1b""7\x1b[1;112H MODE: XMID YMID\x1b""8";
+		short k = 1;
+		for (short i = 2; i >= 0; --i) {
+			short l = -1;
+			for (short j = 0; j < 3; j++) {
+				draw_cell_small(j, i, player.get_x_position() + l, player.get_y_position() + k);
+				l++;
+			}
+			k--;
+		}
 	}
 
 	ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
@@ -799,7 +1236,12 @@ void draw_map() {
 
 //redraws the last visited cells
 void redraw_map() {
-	draw_cell(player.get_x_position(), player.get_y_position());
+	if (small_screen) {
+		draw_map_small();
+	}
+	else {
+		draw_cell(player.get_x_position(), player.get_y_position());
+	}
 	ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
 }
 
@@ -821,23 +1263,38 @@ bool check_for_restart() {
 
 //main function
 int main() {
-
+	short x, y;
 	//we can create the image files if we need
 	if (initialize_files()) {
-		//init stuff
-		initialize_map();
+
 		initialize_console();
-		draw_map();
+
+		//goto label for restarting
+	restart_entry:
+
+		initialize_map();
+
+		clear_screen();
+
+		//draw map depending on screen size
+		if (small_screen) {
+			draw_map_small();
+		}
+		else {
+			draw_map();
+		}
+
+		//init player
 		player.set_x_position(0);
 		player.set_y_position(0);
 		player.enable_walking();
-		//esc_ended = GetKeyState(VK_ESCAPE);
+
+		//just to update once
+		redraw_map();
 
 		//main game loop
 		while (!gameover && !esc_ended) {
 			Sleep(33);
-			//output funny changing numbers
-			//std::cout << "\x1b""7\x1b[1;112H| player time: " << player.last_input << ", diff in seconds: " << (float)(clock() - player.last_input) << "\x1b""8";
 			//as long as nothing bad happens
 			if (!met_wumpus && !fell_in_pit && !got_gold) {
 				//input buffering/blocking is implemented in the agent class.
@@ -853,7 +1310,7 @@ int main() {
 			}
 
 			//goto splash screen on m = menu, esc was bugged...
-			if (GetKeyState('M')) {
+			if (GetAsyncKeyState(VK_ESCAPE)) {
 				esc_ended = true;
 			}
 		}
@@ -863,7 +1320,7 @@ int main() {
 
 		//check for restart
 		if (check_for_restart()) {
-			main();
+			goto restart_entry;
 		}
 	}
 
