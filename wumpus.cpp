@@ -1,4 +1,5 @@
 ﻿#include "wumpus.h"
+#include <strsafe.h>
 //#define DEBUG
 
 //cell state encoding:
@@ -24,6 +25,10 @@
 /// 
 /// or i couold change the code page *shrug*
 /// </disclaimer2>
+
+HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
+COORD console_buffer_size;
+CONSOLE_CURSOR_INFO cursor_info;
 
 //closes the console window when ctrl+c is called
 BOOL WINAPI wumpus::ConsoleHandler(DWORD ctrl_type) {
@@ -94,10 +99,44 @@ void wumpus::initialize_map() {
     }
 }
 
+//error message thingy kindly borroughed from microsoft to debug with. f*ck me this windows debugging is ass. compiles on my destkop, not on my laptop (works on both)
+// FUN FACT: calling this error message messager can produdce an error...
+void ErrorExit(LPTSTR lpszFunction){
+    // Retrieve the system error message for the last-error code
+
+    LPVOID lpMsgBuf;
+    LPVOID lpDisplayBuf;
+    DWORD dw = GetLastError();
+
+    FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER |
+        FORMAT_MESSAGE_FROM_SYSTEM |
+        FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        dw,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPTSTR)&lpMsgBuf,
+        0, NULL);
+
+    // Display the error message and exit the process
+
+    lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT,
+        (lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR));
+    StringCchPrintf((LPTSTR)lpDisplayBuf,
+        LocalSize(lpDisplayBuf) / sizeof(TCHAR),
+        TEXT("%s failed with error %d: %s"),
+        lpszFunction, dw, lpMsgBuf);
+    MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK);
+
+    LocalFree(lpMsgBuf);
+    LocalFree(lpDisplayBuf);
+    ExitProcess(dw);
+}
+
 //clears and prepares the console screen, see https://docs.microsoft.com/en-us/windows/console/console-functions
 void wumpus::initialize_console() {
     //vars and flags and so on
-    CONSOLE_CURSOR_INFO cursor_info;
+    CONSOLE_SCREEN_BUFFER_INFO s;
     COORD tl = { 0,0 };
     DWORD dwFlags = CONSOLE_FULLSCREEN_MODE;
     DWORD dwMode;
@@ -111,12 +150,13 @@ void wumpus::initialize_console() {
     SetConsoleCP(437); //see https://www.ascii-codes.com/ page 437
     SetConsoleOutputCP(437);
 
-    //window title
-    SetConsoleTitle(TEXT("WUMPUS by Leonhard Seidel, Nr. 5467428"));
-
     //fullscreen window, no scrollbars
     SetConsoleDisplayMode(console, dwFlags, &console_buffer_size);
+    ErrorExit(const_cast<LPTSTR>("SetConsoleDisplayMode"));
     ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
+
+    //window title
+    SetConsoleTitle(TEXT("WUMPUS by Leonhard Seidel, Nr. 5467428"));
 
     //enable some console flags (vt100 sequence processing (mouse input should be disabled, but somehow isn't))
     GetConsoleMode(console, &dwMode);
@@ -177,7 +217,6 @@ void wumpus::initialize_console() {
     GetConsoleCursorInfo(console, &cursor_info);
     cursor_info.bVisible = false;
     SetConsoleCursorInfo(console, &cursor_info);
-
 }
 
 void wumpus::clear_screen() {
@@ -1229,6 +1268,11 @@ void wumpus::redraw_map() {
     else {
         draw_cell(player.get_x_position(), player.get_y_position());
     }
+
+    //disable cursor
+    GetConsoleCursorInfo(console, &cursor_info);
+    cursor_info.bVisible = false;
+    SetConsoleCursorInfo(console, &cursor_info);
     ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
 }
 
@@ -1250,8 +1294,13 @@ bool wumpus::check_for_restart() {
 
 //main function
 int main() {
-    wumpus game;
     short x, y;
+    wumpus game;
+
+    //game init stuff, might be moved to a ingame menu
+    game.playertype = 1; // 0 = ai, 1 = local player, aka human, 2 or more = ?
+    game.world_size = 4;
+
     //we can create the image files if we need
     if (game.initialize_files()) {
 
@@ -1261,7 +1310,6 @@ int main() {
     restart_entry:
 
         game.initialize_map();
-
         game.clear_screen();
 
         //draw map depending on screen size
@@ -1272,36 +1320,48 @@ int main() {
             game.draw_map();
         }
 
-        //init player
-        game.player.set_x_position(0);
-        game.player.set_y_position(0);
-        game.player.enable_walking();
+        //if we have a human player
+        if (game.playertype)
+        {
+            //init player
+            game.player.set_x_position(0);
+            game.player.set_y_position(0);
+            game.player.enable_walking();
 
-        //just to update once
-        game.redraw_map();
+            //just to update once
+            game.redraw_map();
 
-        //main game loop
-        while (!game.gameover && !game.esc_ended) {
-            Sleep(33);
-            //as long as nothing bad happens
-            if (!game.met_wumpus && !game.fell_in_pit && !game.got_gold) {
-                //input buffering/blocking is implemented in the agent class.
-                game.player.walk(&x, &y, &game.old_x, &game.old_y, &game.world_size);
-                //if the player did walk
-                if (x != game.old_x || y != game.old_y) {
-                    game.map.update(x, y, game.old_x, game.old_y);
+            //main game loop
+            while (!game.gameover && !game.esc_ended) {
+                Sleep(33);
+                //as long as nothing bad happens
+                if (!game.met_wumpus && !game.fell_in_pit && !game.got_gold) {
+                    //input buffering/blocking is implemented in the agent class.
+                    game.player.walk(&x, &y, &game.old_x, &game.old_y, &game.world_size);
+                    //if the player did walk
+                    if (x != game.old_x || y != game.old_y) {
+                        game.map.update(x, y, game.old_x, game.old_y);
+                        game.redraw_map();
+                    }
+                }
+                else {
                     game.redraw_map();
                 }
-            }
-            else {
-                game.redraw_map();
-            }
 
-            //goto splash screen on m = menu, esc was bugged...
-            if (GetAsyncKeyState(VK_ESCAPE)) {
-                game.esc_ended = true;
+                //goto splash screen on m = menu, esc was bugged...
+                if (GetAsyncKeyState(VK_ESCAPE)) {
+                    game.esc_ended = true;
+                }
             }
         }
+        else {
+            //init ai player
+            game.mr_robot.set_world_size(game.world_size);
+            game.mr_robot.set_x_position(0);
+            game.mr_robot.set_y_position(0);
+
+        }
+
 
         //draw game end screen
         game.draw_gameover();

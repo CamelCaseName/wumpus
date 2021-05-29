@@ -45,14 +45,12 @@ public:
     void draw_map_small();
     void redraw_map();
     bool check_for_restart();
-    short world_size = 10, old_x = 0, old_y = 0; //agent position variables
+    short world_size = 10, old_x = 0, old_y = 0, playertype = 0; //different useful? variables
     world map;
     agent_local player;
+    agent_auto mr_robot;
     bool player_walk_animation = 0, gameover = 0, fell_in_pit = 0, met_wumpus = 0, got_gold = 0, esc_ended = 0, small_screen = 0;
 private:
-    HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
-    CONSOLE_SCREEN_BUFFER_INFO s;
-    COORD console_buffer_size;
 };
 
 #endif // !WUMPUS_H
