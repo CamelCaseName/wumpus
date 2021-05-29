@@ -26,4 +26,33 @@
 //ext. libraries
 #include "bmp/BMP.h"
 
+class wumpus {
+public:
+    wumpus() {};
+    ~wumpus() {};
+    BOOL WINAPI ConsoleHandler(DWORD ctrl_type);
+    bool initialize_files();
+    void initialize_map();
+    void initialize_console();
+    void clear_screen();
+    void pit_ending_draw(short x, short y);
+    void draw_block(double* size);
+    void draw_from_bmp(char* path);
+    void draw_gameover();
+    void draw_cell(short x, short y);
+    void draw_cell_small(short x, short y, short map_x, short map_y);
+    void draw_map();
+    void draw_map_small();
+    void redraw_map();
+    bool check_for_restart();
+    short world_size = 10, old_x = 0, old_y = 0; //agent position variables
+    world map;
+    agent_local player;
+    bool player_walk_animation = 0, gameover = 0, fell_in_pit = 0, met_wumpus = 0, got_gold = 0, esc_ended = 0, small_screen = 0;
+private:
+    HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO s;
+    COORD console_buffer_size;
+};
+
 #endif // !WUMPUS_H
