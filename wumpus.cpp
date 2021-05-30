@@ -21,6 +21,8 @@
 /// <disclaimer2>
 /// i accidentally saved the file with unicode encoding, so now i have to replace all box drawing chars with their \x hex represenations. 
 /// LOOKS SHIT, but is necessary
+///
+/// you can find an "explanation" in the draw_cell() function
 /// 
 /// or i couold change the code page *shrug*
 /// </disclaimer2>
@@ -157,13 +159,13 @@ void wumpus::initialize_console() {
     }
     ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
 
-    //window title
-    SetConsoleTitle(TEXT("WUMPUS by Leonhard Seidel, Nr. 5467428"));
-
     //enable some console flags (vt100 sequence processing (mouse input should be disabled, but somehow isn't))
     GetConsoleMode(console, &dwMode);
     dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
     SetConsoleMode(console, dwMode);
+
+    //window title
+    std::cout << "\x1b]2;WUMPUS by Leonhard Seidel, Nr. 5467428\x07";
 
     //clear screen once
     GetConsoleScreenBufferInfo(console, &s);
@@ -216,9 +218,7 @@ void wumpus::initialize_console() {
     std::cout << "\x1b[0m";
 
     //disable cursor
-    GetConsoleCursorInfo(console, &cursor_info);
-    cursor_info.bVisible = false;
-    SetConsoleCursorInfo(console, &cursor_info);
+    std::cout << "\x1b[?12l\x1b[?25l";
 }
 
 //clears the whole screen
@@ -410,8 +410,76 @@ void wumpus::draw_gameover() {
     draw_message("PRESS ESC TO END THE GAME, PRESS RETURN TO RESTART");
 }
 
-//draws a single cell https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
+//draws a single cell 
 void wumpus::draw_cell(short x, short y) {
+
+    /*
+        "Explanation"
+
+        for most of the console formatting i use vt100 terminal sequences. these have been introduced to windows in ~2016,
+        and are best practice by now. (better cross compatibility and so on)
+        see: https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
+
+        there are two types of sequences: control sequence induces (CSI) sequences, and operating system command (OSC) sequences.
+        no spaces are to be included in these sequences.
+        CSI sequences start with the ESC char, followed by an '['
+        the OSC sequences also begin with an ESC, but are followed by an ']'
+        after the brackets, numbers can be used to set up a command. the numbers are seperated with a semicolon ';'
+        at the end of a terminal sequence follows the char corresponding to the command.
+        i put a table here with the ones i used. you can read more on these following the link above.
+
+        ### general info on the commands ###
+        \x1b = ESC in hexadecimal notation
+        \x1b[ = the beginning of a command
+
+        ### cursor commands ###
+        \x1b[<n>A = move cursor up (n times)
+        \x1b[<n>B = move cursor down (n times)
+        \x1b[<n>C = move cursor right/forward (n times)
+        \x1b[<n>D = move cursor left/backward (n times)
+        \x1b""7 = store current cursor position {because of how the numbers after \x are interpreted, we have to seperate the ESC and the number/letter with a ""}
+        \x1b""8 = restore stored cursor postition {same here...}
+        \x1b[<y>;<n=x>H = set cursor to the given coord, starts on 1
+        \x1b[?12l = disable cursor blinking {lowercase L at the end}
+        \x1b[?25l = hide cursor {lowercase L at the end}
+
+        ### text color commands ###
+        # all color commands apply to characters only, which are output after the color has been set.
+        \x1b[0m = all default colors
+        \x1b[<n>m = set text color, where n is a special number
+        \x1b[38:<r>;<g>;<b>m = sets the foreground color to the rgb value given
+        \x1b[48:<r>;<g>;<b>m = sets the background color to the rgb value given
+        # for all other color values please refer to the section in the manual
+        # https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences#text-formatting
+
+        ### miscellaneous commands ###
+        \x1b[<n>K = clear line <n>
+        \x1b]<string>\x07 = set window title, delimiter is the bell character.
+
+        ### characters in the codepage 437 i used:
+        \x01   ☺
+        \xb0     ░
+        \xb1   ▒
+        \xb2     ▓
+        \xb5   ╡
+        \xb9     ╣
+        \xba   ╔
+        \xbb     ╗
+        \xbf   ┐
+        \xc0     └
+        \xc2   ╥
+        \xc6     ╞
+        \xca   ╩
+        \xcc     ╠
+        \xcd   ═
+        \xd0     ╨
+        \xd7   ╫
+        \xd9     ┘
+        \xda   ┌
+        \xdb     █
+        \xdc   ▄
+        \xf0     ≡
+    */
 
     //some drawing magic (code looks shit, but works flawless)
     std::cout << "\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
@@ -1312,9 +1380,7 @@ void wumpus::redraw_map() {
     }
 
     //disable cursor
-    GetConsoleCursorInfo(console, &cursor_info);
-    cursor_info.bVisible = false;
-    SetConsoleCursorInfo(console, &cursor_info);
+    std::cout << "\x1b[?12l\x1b[?25l";
     ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
 }
 
