@@ -130,7 +130,7 @@ struct BMP {
             bmp_info_header.compression = 3;
             row_stride = width * 4;
             data.resize((size_t)row_stride * height);
-            file_header.file_size = file_header.offset_data + data.size();
+            file_header.file_size = file_header.offset_data + (uint32_t)data.size();
         }
         else {
             bmp_info_header.size = sizeof(BMPInfoHeader);

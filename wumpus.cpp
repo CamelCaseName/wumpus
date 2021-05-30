@@ -92,9 +92,9 @@ void wumpus::initialize_map() {
     }
 }
 
-//error message thingy kindly borroughed from microsoft to debug with. f*ck me this windows debugging is ass. compiles on my destkop, not on my laptop (works on both)
+// error message thingy kindly borroughed from microsoft to debug with. f*ck me this windows debugging is ass. compiles on my destkop, not on my laptop (works on both)
 // FUN FACT: calling this error message messager can produdce an error...
-//https://docs.microsoft.com/en-us/windows/win32/debug/retrieving-the-last-error-code
+// https://docs.microsoft.com/en-us/windows/win32/debug/retrieving-the-last-error-code
 void wumpus::ErrorExit(LPTSTR lpszFunction) {
     // Retrieve the system error message for the last-error code
 
