@@ -32,7 +32,6 @@ class wumpus {
 public:
     wumpus() {};
     ~wumpus() {};
-    BOOL WINAPI ConsoleHandler(DWORD ctrl_type);
     bool initialize_files();
     void initialize_map();
     void initialize_console();

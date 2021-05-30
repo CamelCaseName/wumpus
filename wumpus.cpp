@@ -31,14 +31,6 @@ HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
 COORD console_buffer_size;
 CONSOLE_CURSOR_INFO cursor_info;
 
-//closes the console window when ctrl+c is called
-BOOL WINAPI wumpus::ConsoleHandler(DWORD ctrl_type) {
-    if (ctrl_type == CTRL_C_EVENT || ctrl_type == CTRL_BREAK_EVENT) {
-        ExitProcess(0);
-    }
-    return FALSE;
-}
-
 //create image files if necessary
 bool wumpus::initialize_files() {
     //filestream to test for one of the images
@@ -455,6 +447,7 @@ void wumpus::draw_cell(short x, short y) {
         ### miscellaneous commands ###
         \x1b[<n>K = clear line <n>
         \x1b]<string>\x07 = set window title, delimiter is the bell character.
+        \x1b[<t>;<b>r = set screen scroll region from t to b (inclusive), son"t think i use this anymore
 
         ### characters in the codepage 437 i used:
         \x01   ☺
