@@ -10,7 +10,6 @@
 #define	WUMPUS	64
 #define	VISITED 512
 
-
 //own libraries
 #include "world.h"
 #include "agent_auto.h"
@@ -18,10 +17,13 @@
 #include "images.h"
 
 //std. libraries
-#include <iostream>
+#include <iostream>  
+#include <strsafe.h>
 #include <random>
 #include <time.h>
 #include <windows.h> //well on windows obviously it's standard, fight me
+//#include <wincon.h> //maybe fixes an error?
+//#include <consoleapi3.h> //try nr 2
 
 //ext. libraries
 #include "bmp/BMP.h"
@@ -45,6 +47,8 @@ public:
     void draw_map_small();
     void redraw_map();
     bool check_for_restart();
+    void draw_message(const char* message);
+    void ErrorExit(LPTSTR lpszFunction);
     short world_size = 10, old_x = 0, old_y = 0, playertype = 0; //different useful? variables
     world map;
     agent_local player;

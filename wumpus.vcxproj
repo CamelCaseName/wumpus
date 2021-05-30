@@ -147,7 +147,6 @@
     <ClInclude Include="agent_local.h" />
     <ClInclude Include="cell.h" />
     <ClInclude Include="images.h" />
-    <ClInclude Include="node.h" />
     <ClInclude Include="world.h" />
     <ClInclude Include="wumpus.h" />
   </ItemGroup>

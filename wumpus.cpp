@@ -1,5 +1,4 @@
 ﻿#include "wumpus.h"
-#include <strsafe.h>
 //#define DEBUG
 
 //cell state encoding:
@@ -101,7 +100,8 @@ void wumpus::initialize_map() {
 
 //error message thingy kindly borroughed from microsoft to debug with. f*ck me this windows debugging is ass. compiles on my destkop, not on my laptop (works on both)
 // FUN FACT: calling this error message messager can produdce an error...
-void ErrorExit(LPTSTR lpszFunction){
+//https://docs.microsoft.com/en-us/windows/win32/debug/retrieving-the-last-error-code
+void wumpus::ErrorExit(LPTSTR lpszFunction) {
     // Retrieve the system error message for the last-error code
 
     LPVOID lpMsgBuf;
@@ -123,9 +123,9 @@ void ErrorExit(LPTSTR lpszFunction){
     lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT,
         (lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR));
     StringCchPrintf((LPTSTR)lpDisplayBuf,
-        LocalSize(lpDisplayBuf) / sizeof(TCHAR),
-        TEXT("%s failed with error %d: %s"),
-        lpszFunction, dw, lpMsgBuf);
+                    LocalSize(lpDisplayBuf) / sizeof(TCHAR),
+                    TEXT("%s failed with error %d: %s"),
+                    lpszFunction, dw, lpMsgBuf);
     MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK);
 
     LocalFree(lpMsgBuf);
@@ -151,8 +151,10 @@ void wumpus::initialize_console() {
     SetConsoleOutputCP(437);
 
     //fullscreen window, no scrollbars
-    SetConsoleDisplayMode(console, dwFlags, &console_buffer_size);
-    ErrorExit(const_cast<LPTSTR>("SetConsoleDisplayMode"));
+    //this throws an error if the function is not supported. tho i cannot find out whyyyy
+    if (!SetConsoleDisplayMode(console, dwFlags, &console_buffer_size)) {
+        //ErrorExit(const_cast<LPTSTR>("SetConsoleDisplayMode"));
+    }
     ShowScrollBar(GetConsoleWindow(), SB_BOTH, 0);
 
     //window title
@@ -219,12 +221,18 @@ void wumpus::initialize_console() {
     SetConsoleCursorInfo(console, &cursor_info);
 }
 
+//clears the whole screen
 void wumpus::clear_screen() {
     //fill all cells with emptyness
     std::cout << "\x1b[2;0H";
     for (uint8_t i = 2; i < console_buffer_size.Y + 2; i++) {
         std::cout << "\x1b[2K\x1b[B";
     }
+}
+
+//puts a message in the middle of the screen
+void wumpus::draw_message(const char* message) {
+    std::cout << "\x1b[""7\x1b[2;" << (console_buffer_size.X - strlen(message)) / 2 << "H\x1b[30;1;47m" << message << "\x1b[0m\x1b""8";
 }
 
 //draws the pit
@@ -399,14 +407,11 @@ void wumpus::draw_gameover() {
     Sleep(1000);
 
     //draw keybinds for exiting/restarting
-    std::cout << "\x1b[2;" << (console_buffer_size.X - 50) / 2 << "H\x1b[30;1;47mPRESS ESC TO END THE GAME, PRESS RETURN TO RESTART\x1b[0m";
+    draw_message("PRESS ESC TO END THE GAME, PRESS RETURN TO RESTART");
 }
 
 //draws a single cell https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
 void wumpus::draw_cell(short x, short y) {
-
-    //COORD T{ x,y };
-    //SetConsoleCursorPosition(console, T);
 
     //some drawing magic (code looks shit, but works flawless)
     std::cout << "\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
@@ -458,7 +463,12 @@ void wumpus::draw_cell(short x, short y) {
         if (map.get_cell(x, y) & PIT) {
             //set end screen var plus disable movement
             fell_in_pit = 1;
-            player.disable_walking();
+            if (playertype) {
+                player.disable_walking();
+            }
+            else {
+                mr_robot.disable_walking();
+            }
 
             //move cursor to lowest point
             std::cout << "\x1b[2;0H\x1b[40;22m";
@@ -522,7 +532,12 @@ void wumpus::draw_cell(short x, short y) {
         else if (map.get_cell(x, y) & WUMPUS) {
             //set end screen var plus disable movement
             met_wumpus = true;
-            player.disable_walking();
+            if (playertype) {
+                player.disable_walking();
+            }
+            else {
+                mr_robot.disable_walking();
+            };
 
             //todo add wumpus
 
@@ -630,7 +645,12 @@ void wumpus::draw_cell(short x, short y) {
             if (map.get_cell(x, y) & GOLD) {
                 //set end screen var plus disable movement
                 got_gold = 1;
-                player.disable_walking();
+                if (playertype) {
+                    player.disable_walking();
+                }
+                else {
+                    mr_robot.disable_walking();
+                }
 
                 //left = 1, top = 2, right = 4, bottom = 8
                 uint8_t border = 0, i_at_border_hit = 0;
@@ -788,6 +808,8 @@ void wumpus::draw_cell(short x, short y) {
                     }
                 }
 
+                Sleep(600);
+
                 //vars for game end
                 got_gold = true;
                 gameover = true;
@@ -856,7 +878,12 @@ void wumpus::draw_cell_small(short x, short y, short map_x, short map_y) {
             if (map.get_cell(map_x, map_y) & PIT) {
                 //set end screen var plus disable movement
                 fell_in_pit = 1;
-                player.disable_walking();
+                if (playertype) {
+                    player.disable_walking();
+                }
+                else {
+                    mr_robot.disable_walking();
+                }
 
                 //move cursor to lowest point
                 std::cout << "\x1b[2;0H\x1b[40;22m";
@@ -920,7 +947,12 @@ void wumpus::draw_cell_small(short x, short y, short map_x, short map_y) {
             else if (map.get_cell(map_x, map_y) & WUMPUS) {
                 //set end screen var plus disable movement
                 met_wumpus = true;
-                player.disable_walking();
+                if (playertype) {
+                    player.disable_walking();
+                }
+                else {
+                    mr_robot.disable_walking();
+                }
 
                 //todo add wumpus
 
@@ -1022,7 +1054,12 @@ void wumpus::draw_cell_small(short x, short y, short map_x, short map_y) {
                 if (map.get_cell(map_x, map_y) & GOLD) {
                     //set end screen var plus disable movement
                     got_gold = 1;
-                    player.disable_walking();
+                    if (playertype) {
+                        player.disable_walking();
+                    }
+                    else {
+                        mr_robot.disable_walking();
+                    }
 
                     //left = 1, top = 2, right = 4, bottom = 8
                     uint8_t border = 0, i_at_border_hit = 0;
@@ -1266,7 +1303,12 @@ void wumpus::redraw_map() {
         draw_map_small();
     }
     else {
-        draw_cell(player.get_x_position(), player.get_y_position());
+        if (playertype) {
+            draw_cell(player.get_x_position(), player.get_y_position());
+        }
+        else {
+            draw_cell(mr_robot.get_x_position(), mr_robot.get_y_position());
+        }
     }
 
     //disable cursor
@@ -1298,7 +1340,7 @@ int main() {
     wumpus game;
 
     //game init stuff, might be moved to a ingame menu
-    game.playertype = 1; // 0 = ai, 1 = local player, aka human, 2 or more = ?
+    game.playertype = 0; // 0 = ai, 1 = local player, aka human, 2 or more = ?
     game.world_size = 4;
 
     //we can create the image files if we need
@@ -1321,8 +1363,7 @@ int main() {
         }
 
         //if we have a human player
-        if (game.playertype)
-        {
+        if (game.playertype) {
             //init player
             game.player.set_x_position(0);
             game.player.set_y_position(0);
@@ -1348,7 +1389,7 @@ int main() {
                     game.redraw_map();
                 }
 
-                //goto splash screen on m = menu, esc was bugged...
+                //goto splash screen on esc...
                 if (GetAsyncKeyState(VK_ESCAPE)) {
                     game.esc_ended = true;
                 }
@@ -1357,9 +1398,47 @@ int main() {
         else {
             //init ai player
             game.mr_robot.set_world_size(game.world_size);
+            game.mr_robot.set_algorithm(0); //random walking
+            game.mr_robot.initialize_memory();
             game.mr_robot.set_x_position(0);
             game.mr_robot.set_y_position(0);
+            game.mr_robot.disable_walking();
 
+            game.draw_message("PRESS RETURN TO START THE COMPUTER AGENT");
+
+            //wait for input
+            while (!GetAsyncKeyState(VK_RETURN)) {} //only works first time, dunno
+
+            game.mr_robot.enable_walking();
+
+            //remove message
+            std::cout << "\x1b[""7\x1b[2;0H\x1b[2K\x1b""8";
+
+            //just to update once
+            game.redraw_map();
+
+            //main game loop
+            while (!game.gameover && !game.esc_ended) {
+                Sleep(33);
+                //as long as nothing bad happens
+                if (!game.met_wumpus && !game.fell_in_pit && !game.got_gold) {
+                    //input buffering/blocking is implemented in the agent class.
+                    game.mr_robot.step(&x, &y, &game.old_x, &game.old_y);
+                    //if the player did walk
+                    if (x != game.old_x || y != game.old_y) {
+                        game.map.update(x, y, game.old_x, game.old_y);
+                        game.redraw_map();
+                    }
+                }
+                else {
+                    game.redraw_map();
+                }
+
+                //goto splash screen on esc...
+                if (GetAsyncKeyState(VK_ESCAPE)) {
+                    game.esc_ended = true;
+                }
+            }
         }
 
 
