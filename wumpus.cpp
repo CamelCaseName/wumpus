@@ -14,7 +14,8 @@
 
 /// <disclaimer1>
 /// I know i mixed the windows proprietary console controls and the VT100 terminal control sequences
-/// But i do't want to fix it, there is no need (this should be windows only, right?) 
+/// But i do't want to fix it, there is no need (this should be windows only, right?)
+/// I am transitioning to use as much vt100 as possible tho, because why not.
 /// </disclaimer1>
 
 
@@ -23,8 +24,7 @@
 /// LOOKS SHIT, but is necessary
 ///
 /// you can find an "explanation" in the draw_cell() function
-/// 
-/// or i couold change the code page *shrug*
+///
 /// </disclaimer2>
 
 HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -160,16 +160,18 @@ void wumpus::initialize_console() {
     std::cout << "\x1b]2;WUMPUS by Leonhard Seidel, Nr. 5467428\x07";
 
     //clear screen once
-    GetConsoleScreenBufferInfo(console, &s);
-    DWORD written, chars = s.dwSize.X * s.dwSize.Y;
-    FillConsoleOutputCharacterW(console, ' ', chars, tl, &written);
-    FillConsoleOutputAttribute(console, s.wAttributes, chars, tl, &written);
+    std::cout << "\x1b[0;0H";
+    for (uint8_t i = 0; i <= console_buffer_size.Y; i++) {
+        std::cout << "\x1b[2K\x1b[B";
+    }
 
     //get console buffer and font and stuff
     GetCurrentConsoleFontEx(console, false, &console_font);
-    console_buffer_size.X = GetSystemMetrics(SM_CXSCREEN) / GetConsoleFontSize(console, console_font.nFont).X - 4;
-    console_buffer_size.Y = GetSystemMetrics(SM_CYSCREEN) / GetConsoleFontSize(console, console_font.nFont).Y;
-    SetConsoleCursorPosition(console, tl);
+    //console_buffer_size.X = GetSystemMetrics(SM_CXSCREEN) / GetConsoleFontSize(console, console_font.nFont).X - 4;
+    //console_buffer_size.Y = GetSystemMetrics(SM_CYSCREEN) / GetConsoleFontSize(console, console_font.nFont).Y;
+    GetConsoleScreenBufferInfo(console, &s);
+    console_buffer_size = s.dwMaximumWindowSize;
+    std::cout << "\x1b[0;0H";
     //printf("original buffer size : %d x %d, displaysize: %d x %d, ", console_buffer_size.X, console_buffer_size.Y, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
 
     //adjust to 8x8 char size of a cell
@@ -366,40 +368,75 @@ void wumpus::draw_from_bmp(char* path) {
 
 //draws the game over screen
 void wumpus::draw_gameover() {
-    //move cursor to lowest point
-    std::cout << "\x1b[2;0H\x1b[40;22m";
+    //if we go into the menu
+    if (esc_menu_request) {
+        //switch to a new screen buffer and disable the cursor
+        std::cout << "\x1b[?1049h\x1b[2;0H\x1b[0m\x1b[?12l\x1b[?25l";
 
-    clear_screen();
-
-    //display a end screen when falling into a pit
-    if (fell_in_pit) {
-        //square_size = (short)(console_buffer_size.X / (13 * 4)); //string is 13 letters long
-        //std::cout << "\x1b[4;2H\x1b[31m";
-        //draw_block(&square_size);
-
-        //choose one of the multiple end screens
-        if (rand() % 2 == 0) {
-            draw_from_bmp((char*)"pit1.bmp");
+        //cool new menu banner
+        float frequency = .3f;
+        short r, g, b;
+        for (short i = 0; i < (console_buffer_size.X - 8) / 2; i++) {
+            r = (short)(sin(frequency * i + 0) * 127 + 128);
+            g = (short)(sin(frequency * i + 2) * 127 + 128);
+            b = (short)(sin(frequency * i + 4) * 127 + 128);
+            std::cout << "\x1b[38;2;" << r << ";" << g << ";" << b << "m\xcd";
         }
-        else {
-            draw_from_bmp((char*)"pit2.bmp");
+        r = 128;
+        g = (short)(sin(2) * 127 + 128);
+        b = (short)(sin(4) * 127 + 128);
+        std::cout << "\xb9\x1b[46;30;7mSettings" << "\x1b[0m\x1b[38;2;" << r << ";" << g << ";" << b << "m\xcc";
+        for (short i = 0; i < (console_buffer_size.X - 8) / 2; i++) {
+            r = (short)(sin(frequency * i + 0) * 127 + 128);
+            g = (short)(sin(frequency * i + 2) * 127 + 128);
+            b = (short)(sin(frequency * i + 4) * 127 + 128);
+            std::cout << "\x1b[38;2;" << r << ";" << g << ";" << b << "m\xcd";
         }
+        std::cout << "\x1b[0m";
+
+        Sleep(1000);
+
+        std::cout << "\x1b[?1049l";
+
     }
-    else if (got_gold) {
-        //choose one of the multiple end screens
-        if (rand() % 2 == 0) {
-            draw_from_bmp((char*)"gold1.bmp");
+    else {
+        //move cursor to lowest point and reset color
+        std::cout << "\x1b[2;0H\x1b[0;22m";
+
+        clear_screen();
+
+        //display a end screen when falling into a pit
+        if (fell_in_pit) {
+            //square_size = (short)(console_buffer_size.X / (13 * 4)); //string is 13 letters long
+            //std::cout << "\x1b[4;2H\x1b[31m";
+            //draw_block(&square_size);
+
+            //choose one of the multiple end screens
+            if (rand() % 2 == 0) {
+                draw_from_bmp((char*)"pit1.bmp");
+            }
+            else {
+                draw_from_bmp((char*)"pit2.bmp");
+            }
         }
-        else {
-            draw_from_bmp((char*)"gold2.bmp");
+        else if (got_gold) {
+            //choose one of the multiple end screens
+            if (rand() % 2 == 0) {
+                draw_from_bmp((char*)"gold1.bmp");
+            }
+            else {
+                draw_from_bmp((char*)"gold2.bmp");
+            }
         }
+
+
+        //some waiting time
+        Sleep(1000);
+
+        //draw keybinds for exiting/restarting
+        draw_message("PRESS ESC TO END THE GAME, PRESS RETURN TO RESTART");
     }
 
-    //some waiting time
-    Sleep(1000);
-
-    //draw keybinds for exiting/restarting
-    draw_message("PRESS ESC TO END THE GAME, PRESS RETURN TO RESTART");
 }
 
 //draws a single cell 
@@ -448,6 +485,8 @@ void wumpus::draw_cell(short x, short y) {
         \x1b[<n>K = clear line <n>
         \x1b]<string>\x07 = set window title, delimiter is the bell character.
         \x1b[<t>;<b>r = set screen scroll region from t to b (inclusive), son"t think i use this anymore
+        \x1b[?1049h = switch to a new screen buffer (used for the menu)
+        \x1b[?1049l = switch back to the main buffer
 
         ### characters in the codepage 437 i used:
         \x01   ☺
@@ -1218,9 +1257,9 @@ void wumpus::draw_map_small() {
     // XMIN YMID ok
     // XMIN YMAX ok
     // XMID YMAX ok
-    // XMAX YMAX no
-    // XMAX YMID no
-    // XMAX YMIN no
+    // XMAX YMAX ok
+    // XMAX YMID ok
+    // XMAX YMIN ok
     // XMID YMIN ok
     // default case:
     // XMID YMID ok
@@ -1385,7 +1424,7 @@ bool wumpus::check_for_restart() {
             fell_in_pit = 0;
             met_wumpus = 0;
             got_gold = 0;
-            esc_ended = 0;
+            esc_menu_request = 0;
             map.clear();
             return true;
         }
@@ -1399,8 +1438,8 @@ int main() {
     wumpus game;
 
     //game init stuff, might be moved to a ingame menu
-    game.playertype = 0; // 0 = ai, 1 = local player, aka human, 2 or more = ?
-    game.world_size = 4;
+    game.playertype = 1; // 0 = ai, 1 = local player, aka human, 2 or more = ?
+    game.world_size = 10;
 
     //we can create the image files if we need
     if (game.initialize_files()) {
@@ -1426,13 +1465,17 @@ int main() {
             //init player
             game.player.set_x_position(0);
             game.player.set_y_position(0);
+
+            //return entry for the player agent
+        menu_entry_player_agent:
+
             game.player.enable_walking();
 
             //just to update once
             game.redraw_map();
 
             //main game loop
-            while (!game.gameover && !game.esc_ended) {
+            while (!game.gameover && !game.esc_menu_request) {
                 Sleep(33);
                 //as long as nothing bad happens
                 if (!game.met_wumpus && !game.fell_in_pit && !game.got_gold) {
@@ -1450,7 +1493,8 @@ int main() {
 
                 //goto splash screen on esc...
                 if (GetAsyncKeyState(VK_ESCAPE)) {
-                    game.esc_ended = true;
+                    game.esc_menu_request = true;
+                    game.player.disable_walking();
                 }
             }
         }
@@ -1468,6 +1512,9 @@ int main() {
             //wait for input
             while (!GetAsyncKeyState(VK_RETURN)) {} //only works first time, dunno
 
+            //return entry for the ai agent
+        menu_entry_ai_agent:
+
             game.mr_robot.enable_walking();
 
             //remove message
@@ -1477,7 +1524,7 @@ int main() {
             game.redraw_map();
 
             //main game loop
-            while (!game.gameover && !game.esc_ended) {
+            while (!game.gameover && !game.esc_menu_request) {
                 Sleep(33);
                 //as long as nothing bad happens
                 if (!game.met_wumpus && !game.fell_in_pit && !game.got_gold) {
@@ -1495,18 +1542,29 @@ int main() {
 
                 //goto splash screen on esc...
                 if (GetAsyncKeyState(VK_ESCAPE)) {
-                    game.esc_ended = true;
+                    game.esc_menu_request = true;
+                    game.mr_robot.disable_walking();
                 }
             }
         }
 
-
         //draw game end screen
         game.draw_gameover();
 
-        //check for restart
+        //check for restart and resume at the correct location
         if (game.check_for_restart()) {
-            goto restart_entry;
+            if (game.esc_menu_request) {
+                game.esc_menu_request = false;
+                if (game.playertype) {
+                    goto menu_entry_player_agent;
+                }
+                else {
+                    goto menu_entry_ai_agent;
+                }
+            }
+            else {
+                goto restart_entry;
+            }
         }
     }
 

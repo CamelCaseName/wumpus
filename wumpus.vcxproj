@@ -144,6 +144,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="agent_auto.h" />
+    <ClInclude Include="agent_base.h" />
     <ClInclude Include="agent_local.h" />
     <ClInclude Include="cell.h" />
     <ClInclude Include="images.h" />

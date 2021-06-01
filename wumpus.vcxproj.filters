@@ -47,5 +47,8 @@
     <ClInclude Include="agent_auto.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="agent_base.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

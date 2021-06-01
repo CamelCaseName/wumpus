@@ -52,7 +52,7 @@ public:
     world map;
     agent_local player;
     agent_auto mr_robot;
-    bool player_walk_animation = 0, gameover = 0, fell_in_pit = 0, met_wumpus = 0, got_gold = 0, esc_ended = 0, small_screen = 0;
+    bool player_walk_animation = 0, gameover = 0, fell_in_pit = 0, met_wumpus = 0, got_gold = 0, esc_menu_request = 0, small_screen = 0;
 private:
 };
 
