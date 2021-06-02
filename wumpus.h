@@ -37,6 +37,7 @@ public:
     void initialize_console();
     void clear_screen();
     void pit_ending_draw(short x, short y);
+    void wumpus_ending_draw(short x, short y);
     void draw_block(double* size);
     void draw_from_bmp(char* path);
     void draw_gameover();
