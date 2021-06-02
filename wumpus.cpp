@@ -730,10 +730,10 @@ void wumpus::draw_cell(short x, short y) {
 
 			//draw agent over cell, is easier then always checking in every line (saves ifs)
 			if (player_walk_animation) {
-				std::cout << "\x1b[38;2;128;;0m\x1b[2B\x1b[4D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb";
+				std::cout << "\x1b[38;2;128;;0m\x1b[4B\x1b[4D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb";
 			}
 			else {
-				std::cout << "\x1b[38;2;128;0;0m\x1b[2B\x1b[4D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb";
+				std::cout << "\x1b[38;2;128;0;0m\x1b[4B\x1b[4D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb";
 			}
 
 			//delay next frame
@@ -741,10 +741,10 @@ void wumpus::draw_cell(short x, short y) {
 
 			//draw next frame
 			if (player_walk_animation) {
-				std::cout << "\x1b[38;2;64;0;0m\x1b[2B\x1b[4D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb";
+				std::cout << "\x1b[38;2;64;0;0m\x1b[2A\x1b[2D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb";
 			}
 			else {
-				std::cout << "\x1b[38;2;64;0;0m\x1b[2B\x1b[4D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb";
+				std::cout << "\x1b[38;2;64;0;0m\x1b[2A\x1b[2D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb";
 			}
 
 			//delay next frame
@@ -752,10 +752,10 @@ void wumpus::draw_cell(short x, short y) {
 
 			//draw next frame
 			if (player_walk_animation) {
-				std::cout << "\x1b[38;2;32;0;0m\x1b[2B\x1b[4D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+				std::cout << "\x1b[38;2;32;0;0m\x1b[2A\x1b[2D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
 			}
 			else {
-				std::cout << "\x1b[38;2;32;0;0m\x1b[2B\x1b[4D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+				std::cout << "\x1b[38;2;32;0;0m\x1b[2A\x1b[2D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
 			}
 
 			//delay next frame
@@ -1038,7 +1038,7 @@ void wumpus::draw_cell(short x, short y) {
 					}
 				}
 
-				Sleep(600);
+				Sleep(300);
 
 				//vars for game end
 				got_gold = true;
@@ -1182,10 +1182,61 @@ void wumpus::draw_cell_small(short x, short y, short map_x, short map_y) {
 				}
 				else {
 					mr_robot.disable_walking();
+				};
+
+				//reset color attributes
+				std::cout << "\x1b[0m";
+
+				clear_screen();
+
+				//move cursor back to cell beginning
+				std::cout << "\x1b[" << ((3 - y) * 8) - 5 << ";" << x * 16 + 1 << "H";
+
+				wumpus_ending_draw(x, y);
+
+				//draw agent over cell, is easier then always checking in every line (saves ifs)
+				if (player_walk_animation) {
+					std::cout << "\x1b[38;2;128;;0m\x1b[4B\x1b[4D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb";
+				}
+				else {
+					std::cout << "\x1b[38;2;128;0;0m\x1b[4B\x1b[4D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb";
 				}
 
-				//todo add wumpus
+				//delay next frame
+				Sleep(300);
 
+				//draw next frame
+				if (player_walk_animation) {
+					std::cout << "\x1b[38;2;64;0;0m\x1b[2A\x1b[2D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb";
+				}
+				else {
+					std::cout << "\x1b[38;2;64;0;0m\x1b[2A\x1b[2D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb";
+				}
+
+				//delay next frame
+				Sleep(300);
+
+				//draw next frame
+				if (player_walk_animation) {
+					std::cout << "\x1b[38;2;32;0;0m\x1b[2A\x1b[2D\x01\x1b[1B\x1b[2D\xda\xd7\xd9\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+				}
+				else {
+					std::cout << "\x1b[38;2;32;0;0m\x1b[2A\x1b[2D\x01\x1b[1B\x1b[2D\xc0\xd7\xbf\x1b[1B\x1b[3D\xc9\xca\xbb\x1b[37m\x1b[6A\x1b[2C";
+				}
+
+				//delay next frame
+				Sleep(300);
+
+				//draw next frame
+				wumpus_ending_draw(x, y);
+
+				//give player some time to think about their actions
+				Sleep(500);
+
+				//reset background color
+				std::cout << "\x1b[40;22m";
+
+				//game ends
 				gameover = true;
 			}
 
@@ -1572,7 +1623,7 @@ int main() {
 
 	//game init stuff, might be moved to a ingame menu
 	game.playertype = 1; // 0 = ai, 1 = local player, aka human, 2 or more = ?
-	game.world_size = 5;
+	game.world_size = 10;
 
 	//we can create the image files if we need
 	if (game.initialize_files()) {
