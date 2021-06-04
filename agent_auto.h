@@ -15,6 +15,7 @@ public:
     void step(short* new_x, short* new_y, short* old_x, short* old_y);
     void set_world_size(short world_size_in) { world_size = world_size_in; };
     void set_algorithm(short algo) { algorithm = algo; };
+    short get_algorithm() { return algorithm; };
     void initialize_memory();
     void clear_memory();
 private:

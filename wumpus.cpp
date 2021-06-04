@@ -206,7 +206,7 @@ void wumpus::initialize_console() {
 	float frequency = .3f;
 	short r, g, b;
 	//printf("\x1b[38;2;255;100;0mTRUECOLOR\x1b[0m\n");
-	for (short i = 0; i < (console_buffer_size.X - 39) / 2; i++) {
+	for (short i = 0; i < (console_buffer_size.X - 40) / 2; i++) {
 		r = (short)(sin(frequency * i + 0) * 127 + 128);
 		g = (short)(sin(frequency * i + 2) * 127 + 128);
 		b = (short)(sin(frequency * i + 4) * 127 + 128);
@@ -216,7 +216,7 @@ void wumpus::initialize_console() {
 	g = (short)(sin(2) * 127 + 128);
 	b = (short)(sin(4) * 127 + 128);
 	std::cout << "\xb9\x1b[46;30;7mWUMPUS by Leonhard Seidel, Nr. 5467428" << "\x1b[0m\x1b[38;2;" << r << ";" << g << ";" << b << "m\xcc";
-	for (short i = 0; i < (console_buffer_size.X - 39) / 2; i++) {
+	for (short i = 0; i < (console_buffer_size.X - 40) / 2; i++) {
 		r = (short)(sin(frequency * i + 0) * 127 + 128);
 		g = (short)(sin(frequency * i + 2) * 127 + 128);
 		b = (short)(sin(frequency * i + 4) * 127 + 128);
@@ -305,6 +305,7 @@ void wumpus::pit_ending_draw(short x, short y) {
 	}
 }
 
+//an ending draw call
 void wumpus::wumpus_ending_draw(short x, short y) {
 	//move cursor back to cell beginning
 	if (small_screen) {
@@ -469,7 +470,152 @@ void wumpus::draw_gameover() {
 		}
 		std::cout << "\x1b[0m";
 
-		Sleep(1000);
+		draw_message("ENTER TO RETURN, ESC TO QUIT, ARROW KEYS TO MOVE THE CURSOR");
+
+		std::cout << "\x1b[4;6HWorld size:";
+		std::cout << "\x1b[5;6H\x1b[38;2;80;80;80mdefines the side length of the map\x1b[0m";
+		std::cout << "\x1b[8;6HType of player:";
+		std::cout << "\x1b[9;6H\x1b[38;2;80;80;80m0 for AI, 1 for human\x1b[0m";
+		std::cout << "\x1b[12;6HAlgorithm Nr:";
+		std::cout << "\x1b[13;6H\x1b[38;2;80;80;80m0 for random, 1 for a better one?\x1b[0m";
+
+		std::cout << "\x1b[4;25H" << world_size;
+		std::cout << "\x1b[8;25H" << playertype;
+		std::cout << "\x1b[12;25H" << mr_robot.get_algorithm();
+
+		uint8_t selection = 0;
+		clock_t last_input = clock() - 300; //not prone to the year 2038 bug!
+		//see https://social.msdn.microsoft.com/Forums/en-US/622b365d-2be4-4579-bc55-fe826a5b81c4/what-happens-when-the-visual-c-clock-function-rolls-over
+		//at least on my machines CLOCKS_PER_SECOND is defined to 1000, so i don't need to adjust
+
+		while (!(GetKeyState(VK_ESCAPE) & 0x8000)) {
+			//budget timer hehe
+			if (((clock() - last_input) > 300)) {
+				if (!selection) {
+					//draw selector
+					std::cout << "\x1b[4;5H>\x1b[4;17H<";
+					if (GetKeyState(VK_DOWN) & 0x8000) {
+						last_input = clock();
+						std::cout << "\x1b[4;5H \x1b[4;17H \x1b[4;24H \x1b[4;" << 26 + ((world_size / 10) & 1) + (world_size / 100) << "H    "; //remove selector
+						selection++;
+					}
+					else if (GetKeyState(VK_RIGHT) & 0x8000) { //change to value						
+						last_input = clock();
+						while (!(GetKeyState(VK_LEFT) & 0x8000) && !(GetKeyState(VK_ESCAPE) & 0x8000) && !(GetKeyState(VK_RETURN) & 0x8000)) { //while not going back left or exiting
+							//budget timer 2 hehe
+							if (((clock() - last_input) > 300)) {
+								//draw cursor
+								std::cout << "\x1b[4;5H \x1b[4;17H \x1b[4;24H>\x1b[4;" << 26 + ((world_size / 10) & 1) + (world_size / 100) << "H<";
+								if (GetKeyState(VK_DOWN) & 0x8000) {
+									last_input = clock();
+									if (world_size > 4) {
+										world_size--;
+										//redraw  number plus cursor
+										std::cout << "\x1b[4;25H" << world_size;
+										std::cout << "\x1b[4;5H \x1b[4;17H \x1b[4;24H>\x1b[4;" << 26 + ((world_size / 10) & 1) + (world_size / 100) << "H<   ";
+									}
+								}
+								else if (GetKeyState(VK_UP) & 0x8000) {
+									last_input = clock();
+									world_size++; //memory will run out before overflow
+									//redraw  number plus cursor
+									std::cout << "\x1b[4;25H" << world_size;
+									std::cout << "\x1b[4;5H \x1b[4;17H \x1b[4;24H>\x1b[4;" << 26 + ((world_size / 10) & 1) + (world_size / 100) << "H<   ";
+								}
+							}
+						}
+					}
+				}
+				else if (selection == 1) {
+					//draw selector
+					std::cout << "\x1b[8;5H>\x1b[8;21H<";
+					if (GetKeyState(VK_DOWN) & 0x8000) {
+						last_input = clock();
+						std::cout << "\x1b[8;5H \x1b[8;21H \x1b[8;24H \x1b[8;" << 26 + (playertype / 10) << "H  "; //remove selector
+						selection++;
+					}
+					else if (GetKeyState(VK_UP) & 0x8000) {
+						last_input = clock();
+						std::cout << "\x1b[8;5H \x1b[8;21H \x1b[8;24H \x1b[8;" << 26 + (playertype / 10) << "H  "; //remove selector
+						selection--;
+					}
+					else if (GetKeyState(VK_RIGHT) & 0x8000) { //change to value						
+						last_input = clock();
+						while (!(GetKeyState(VK_LEFT) & 0x8000) && !(GetKeyState(VK_ESCAPE) & 0x8000) && !(GetKeyState(VK_RETURN) & 0x8000)) { //while not going back left or exiting
+							//budget timer 2 hehe
+							if (((clock() - last_input) > 300)) {
+								//draw cursor
+								std::cout << "\x1b[8;5H \x1b[8;21H \x1b[8;24H>\x1b[8;" << 26 + (playertype / 10) << "H<";
+								if (GetKeyState(VK_DOWN) & 0x8000) {
+									last_input = clock();
+									if (playertype) {
+										playertype--;
+										//redraw  number plus cursor
+										std::cout << "\x1b[8;25H" << playertype;
+										std::cout << "\x1b[8;5H \x1b[8;21H \x1b[8;24H>\x1b[8;" << 26 + (playertype / 10) << "H< ";
+									}
+								}
+								else if (GetKeyState(VK_UP) & 0x8000) {
+									last_input = clock();
+									if (playertype < 3) {//limit to 3, why not
+										playertype++;
+										//redraw  number plus cursor
+										std::cout << "\x1b[8;25H" << playertype;
+										std::cout << "\x1b[8;5H \x1b[8;21H \x1b[8;24H>\x1b[8;" << 26 + (playertype / 10) << "H< ";
+									}
+								}
+							}
+						}
+					}
+				}
+				else if (selection == 2) {
+					//draw selector
+					std::cout << "\x1b[12;5H>\x1b[12;19H<";
+					if (GetKeyState(VK_UP) & 0x8000) {
+						last_input = clock();
+						std::cout << "\x1b[12;5H \x1b[12;19H \x1b[12;24H \x1b[12;" << 26 + (mr_robot.get_algorithm() / 10) << "H  "; //remove selector
+						selection--;
+					}
+					else if (GetKeyState(VK_RIGHT) & 0x8000) { //change to value						
+						last_input = clock();
+						while (!(GetKeyState(VK_LEFT) & 0x8000) && !(GetKeyState(VK_ESCAPE) & 0x8000) && !(GetKeyState(VK_RETURN) & 0x8000)) { //while not going back left or exiting
+							//budget timer 2 hehe
+							if (((clock() - last_input) > 300)) {
+								//draw cursor
+								std::cout << "\x1b[12;5H \x1b[12;19H \x1b[12;24H>\x1b[12;" << 26 + (mr_robot.get_algorithm() / 10) << "H<";
+								if (GetKeyState(VK_DOWN) & 0x8000) {
+									last_input = clock();
+									if (mr_robot.get_algorithm()) {
+										mr_robot.set_algorithm(mr_robot.get_algorithm() - 1);
+										//redraw  number plus cursor
+										std::cout << "\x1b[12;25H" << mr_robot.get_algorithm();
+										std::cout << "\x1b[12;5H \x1b[12;19H \x1b[12;24H>\x1b[12;" << 26 + (mr_robot.get_algorithm() / 10) << "H< ";
+									}
+								}
+								else if (GetKeyState(VK_UP) & 0x8000) {
+									last_input = clock();
+									if (mr_robot.get_algorithm() < 3) {//limit to 3, why not
+										mr_robot.set_algorithm(mr_robot.get_algorithm() + 1);
+										//redraw  number plus cursor
+										std::cout << "\x1b[12;25H" << mr_robot.get_algorithm();
+										std::cout << "\x1b[12;5H \x1b[12;19H \x1b[12;24H>\x1b[12;" << 26 + (mr_robot.get_algorithm() / 10) << "H< ";
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (GetKeyState(VK_RETURN) & 0x8000) {
+				esc_menu_request = 0;
+				goto skip_exit; // break from the while loop while not quitting
+			}
+		}
+		//exit the program
+		ExitProcess(0);
+
+	skip_exit:
 
 		std::cout << "\x1b[?1049l";
 
@@ -519,7 +665,6 @@ void wumpus::draw_gameover() {
 		//draw keybinds for exiting/restarting
 		draw_message("PRESS ESC TO END THE GAME, PRESS RETURN TO RESTART");
 	}
-
 }
 
 //draws a single cell 
@@ -1599,7 +1744,10 @@ void wumpus::redraw_map() {
 
 //restart checker function
 bool wumpus::check_for_restart() {
-	while (!(GetKeyState(VK_ESCAPE) & 0x8000)) {
+	//wait some time in order to not quit instantly
+	Sleep(500);
+
+	while (!(GetAsyncKeyState(VK_ESCAPE) & 0x8000)) {
 		if (GetKeyState(VK_RETURN) & 0x8000) {
 			if (!esc_menu_request) {
 				clear_screen();
@@ -1621,20 +1769,27 @@ int main() {
 	short x, y;
 	wumpus game;
 
-	//game init stuff, might be moved to a ingame menu
+	//game init stuff, might be moved to a ingame menu (in progress?...)
 	game.playertype = 1; // 0 = ai, 1 = local player, aka human, 2 or more = ?
-	game.world_size = 10;
+	game.world_size = 4;
+	game.mr_robot.set_algorithm(0); //random walking
 
 	//we can create the image files if we need
 	if (game.initialize_files()) {
 
 		game.initialize_console();
 
+		//open settings to adjust them 
+		game.esc_menu_request = true;
+		game.draw_gameover();
+		//if (game.check_for_restart()) {}
+
 		//goto label for restarting
 	restart_entry:
 
 		game.initialize_map();
-		//game.clear_screen();
+		game.clear_screen();
+		game.initialize_console(); //just to adjust the framebuffer and text and everything
 
 		//draw map depending on screen size
 		if (game.small_screen) {
@@ -1685,7 +1840,6 @@ int main() {
 		else {
 			//init ai player
 			game.mr_robot.set_world_size(game.world_size);
-			game.mr_robot.set_algorithm(0); //random walking
 			game.mr_robot.initialize_memory();
 			game.mr_robot.set_x_position(0);
 			game.mr_robot.set_y_position(0);
