@@ -181,6 +181,8 @@ void world::set_size(short size_in) {
 		default_vector_of_cells.push_back(default_cell);
 	}
 
+	internal_map.clear();
+
 	//push back size amount of columns into the map
 	for (short i = 0; i < size; i++) {
 		internal_map.push_back(default_vector_of_cells);

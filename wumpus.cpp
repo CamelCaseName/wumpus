@@ -84,8 +84,8 @@ bool wumpus::initialize_files() {
 //initializes the map
 void wumpus::initialize_map() {
 	//init world with correct size (minimum 4)
-	if (wumpus::world_size > 3) {
-		map.set_size(wumpus::world_size);
+	if (world_size > 3) {
+		map.set_size(world_size);
 	}
 	else {
 		map.set_size(4);
@@ -97,8 +97,8 @@ void wumpus::initialize_map() {
 	}
 }
 
-// error message thingy kindly borroughed from microsoft to debug with. f*ck me this windows debugging is ass. compiles on my destkop, not on my laptop (works on both)
-// FUN FACT: calling this error message messager can produdce an error...
+// error message thingy kindly borroughed from microsoft to debug with. f*ck me this windows debugging is ass. compiles on my desktop, not on my laptop (works on both)
+// FUN FACT: calling this error message messager can produce bad runtime errors...
 // https://docs.microsoft.com/en-us/windows/win32/debug/retrieving-the-last-error-code
 void wumpus::ErrorExit(LPTSTR lpszFunction) {
 	// Retrieve the system error message for the last-error code
@@ -169,8 +169,6 @@ void wumpus::initialize_console() {
 
 	//get console buffer and font and stuff
 	GetCurrentConsoleFontEx(console, false, &console_font);
-	//console_buffer_size.X = GetSystemMetrics(SM_CXSCREEN) / GetConsoleFontSize(console, console_font.nFont).X - 4;
-	//console_buffer_size.Y = GetSystemMetrics(SM_CYSCREEN) / GetConsoleFontSize(console, console_font.nFont).Y;
 	GetConsoleScreenBufferInfo(console, &s);
 	console_buffer_size = s.dwMaximumWindowSize;
 
@@ -181,8 +179,6 @@ void wumpus::initialize_console() {
 	}
 	std::cout << "\x1b[0;0H";
 
-	//printf("original buffer size : %d x %d, displaysize: %d x %d, ", console_buffer_size.X, console_buffer_size.Y, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
-
 	//adjust to 8x8 char size of a cell
 	if ((world_size * 8) + 2 < console_buffer_size.Y) {
 		console_buffer_size.X = world_size * 16;
@@ -192,16 +188,13 @@ void wumpus::initialize_console() {
 	else {
 		small_screen = true;
 	}
-	//printf("adjusted buffer size : %d x %d, fontsize = %d x %d", console_buffer_size.X, console_buffer_size.Y, GetConsoleFontSize(console, console_font.nFont).X, GetConsoleFontSize(console, console_font.nFont).Y);
-
-	//set scrolling margins
-	//std::cout << "\x1b[3;" << console_buffer_size.Y << "r";
 
 	//display game title (now with colors)
 	std::cout << "\x1b[1;0H";
 	float frequency = .3f;
 	short r, g, b;
-	//printf("\x1b[38;2;255;100;0mTRUECOLOR\x1b[0m\n");
+
+	//rgb bar loop
 	for (short i = 0; i < (console_buffer_size.X - 40) / 2; i++) {
 		r = (short)(sin(frequency * i + 0) * 127 + 128);
 		g = (short)(sin(frequency * i + 2) * 127 + 128);
@@ -482,8 +475,12 @@ void wumpus::draw_gameover() {
 		uint8_t selection = 0;
 		clock_t last_input = clock() - 300; //not prone to the year 2038 bug!
 		//see https://social.msdn.microsoft.com/Forums/en-US/622b365d-2be4-4579-bc55-fe826a5b81c4/what-happens-when-the-visual-c-clock-function-rolls-over
-		//at least on my machines CLOCKS_PER_SECOND is defined to 1000, so i don't need to adjust
+		// 
+		//at least on my machines CLOCKS_PER_SEC is defined to 1000, so i don't need to adjust
 
+		Sleep(500);
+
+		//this does the cursor movement and value checks and all
 		while (!(GetKeyState(VK_ESCAPE) & 0x8000)) {
 			//budget timer hehe
 			if (((clock() - last_input) > 300)) {
@@ -505,6 +502,7 @@ void wumpus::draw_gameover() {
 								if (GetKeyState(VK_DOWN) & 0x8000) {
 									last_input = clock();
 									if (world_size > 4) {
+										gameover = true; //to restart the world gen
 										world_size--;
 										//redraw  number plus cursor
 										std::cout << "\x1b[4;25H" << world_size;
@@ -513,6 +511,7 @@ void wumpus::draw_gameover() {
 								}
 								else if (GetKeyState(VK_UP) & 0x8000) {
 									last_input = clock();
+									gameover = true; //to restart the world gen
 									world_size++; //memory will run out before overflow
 									//redraw  number plus cursor
 									std::cout << "\x1b[4;25H" << world_size;
@@ -520,6 +519,7 @@ void wumpus::draw_gameover() {
 								}
 							}
 						}
+						std::cout << "\x1b[4;24H \x1b[4;" << 26 + ((world_size / 10) & 1) + (world_size / 100) << "H "; //remove cursor
 					}
 				}
 				else if (selection == 1) {
@@ -545,6 +545,7 @@ void wumpus::draw_gameover() {
 								if (GetKeyState(VK_DOWN) & 0x8000) {
 									last_input = clock();
 									if (playertype) {
+										gameover = true; //to restart the world gen
 										playertype--;
 										//redraw  number plus cursor
 										std::cout << "\x1b[8;25H" << playertype;
@@ -554,6 +555,7 @@ void wumpus::draw_gameover() {
 								else if (GetKeyState(VK_UP) & 0x8000) {
 									last_input = clock();
 									if (playertype < 3) {//limit to 3, why not
+										gameover = true; //to restart the world gen
 										playertype++;
 										//redraw  number plus cursor
 										std::cout << "\x1b[8;25H" << playertype;
@@ -562,6 +564,7 @@ void wumpus::draw_gameover() {
 								}
 							}
 						}
+						std::cout << "\x1b[8;24H \x1b[8;" << 26 + (playertype / 10) << "H "; //remove cursor
 					}
 				}
 				else if (selection == 2) {
@@ -582,6 +585,7 @@ void wumpus::draw_gameover() {
 								if (GetKeyState(VK_DOWN) & 0x8000) {
 									last_input = clock();
 									if (mr_robot.get_algorithm()) {
+										gameover = true; //to restart the world gen
 										mr_robot.set_algorithm(mr_robot.get_algorithm() - 1);
 										//redraw  number plus cursor
 										std::cout << "\x1b[12;25H" << mr_robot.get_algorithm();
@@ -591,6 +595,7 @@ void wumpus::draw_gameover() {
 								else if (GetKeyState(VK_UP) & 0x8000) {
 									last_input = clock();
 									if (mr_robot.get_algorithm() < 3) {//limit to 3, why not
+										gameover = true; //to restart the world gen
 										mr_robot.set_algorithm(mr_robot.get_algorithm() + 1);
 										//redraw  number plus cursor
 										std::cout << "\x1b[12;25H" << mr_robot.get_algorithm();
@@ -599,22 +604,20 @@ void wumpus::draw_gameover() {
 								}
 							}
 						}
+						std::cout << "\x1b[12;24H \x1b[12;" << 26 + (mr_robot.get_algorithm() / 10) << "H "; //remove cursor
 					}
 				}
 			}
 
 			if (GetKeyState(VK_RETURN) & 0x8000) {
-				esc_menu_request = 0;
-				goto skip_exit; // break from the while loop while not quitting
+				esc_menu_request = false; //just for the check
+				std::cout << "\x1b[?1049l";// break from the while loop while not quitting
+				break;
 			}
 		}
 		//exit the program
-		ExitProcess(0);
-
-	skip_exit:
-
-		std::cout << "\x1b[?1049l";
-
+		if (esc_menu_request) ExitProcess(0);
+		else esc_menu_request = true; //revert back for later use
 	}
 	else {
 		//move cursor to lowest point and reset color
@@ -656,7 +659,7 @@ void wumpus::draw_gameover() {
 		}
 
 		//some waiting time
-		Sleep(1000);
+		Sleep(500);
 
 		//draw keybinds for exiting/restarting
 		draw_message("PRESS ESC TO END THE GAME, PRESS RETURN TO RESTART");
@@ -1030,106 +1033,7 @@ void wumpus::draw_cell(short x, short y) {
 
 				//set colors plus move cursor to the correct position
 				std::cout << "\x1b[33;1m\x1b[43;1m\x1b[" << ((world_size - y) * 8) - 5 << ";" << x * 16 + 1 << "H\x1b[3B\x1b[6C";
-				/*
-				for (uint8_t i = 1; i < world_size * 8 + 6; i += 2) { //takes 4 + 1 cylces (<6) to fill the cell with the gold
-					//after 4 cycles, cell is filled. plus 8 more, we fill the next
 
-					//some really fucked up shit that just miraculously works (sometimes) ¯\_(ツ)_/¯ v0.1
-					if (i == (x + 1) * 8 + 7) {
-						i_at_border_hit = i;
-						border += 1;
-					}
-					if (i == (world_size - y) * 8 + 7) {
-						i_at_border_hit = i;
-						border += 2;
-					}
-					if (i == (world_size - x + 1) * 8 + 7) {
-						i_at_border_hit = i;
-						border += 4;
-					}
-					if (i == (y + 2) * 8 + 7) {
-						i_at_border_hit = i;
-						border += 8;
-					}
-
-					std::cout << "\x1b[0m\x1b""7\x1b[1;112H| current borders: " << (int)border << "\x1b""8\x1b[33;1m\x1b[43;1m";
-
-					//right --> left
-					if (!(border & 2)) {
-						if (i == 1) {
-							//fill central square
-							std::cout << "\x1b[2C\xdb\xdb\x1b[4D\xdb\xdb\x1b[2D";
-							std::cout << "\x1b[B\x1b[2C\xdb\xdb\x1b[4D\xdb\xdb\x1b[2D\x1b[2A";
-						}
-						else {
-							std::cout << "\x1b[A\x1b[2D";
-						}
-						std::cout << "\xdb\xdb\xdb\xdb";
-						for (uint8_t k = 0; k < i; k++) {
-							std::cout << "\xdb\xdb";
-						}
-					}
-					else {
-						std::cout << "\x1b[4C";
-						for (uint8_t k = 1; k < i_at_border_hit + (i - i_at_border_hit) / 2; k++) {
-							std::cout << "\x1b[2C";
-						}
-					}
-
-					//top --> bottom
-					if (!(border & 4)) {
-						std::cout << "\x1b[B\x1b[2D\xdb\xdb";
-						std::cout << "\x1b[B\x1b[2D\xdb\xdb";
-						if (!(border & 2)) {
-							for (uint8_t k = 0; k < i; k++) {
-								std::cout << "\x1b[B\x1b[2D\xdb\xdb";
-							}
-						}
-						else {
-							for (uint8_t k = 1; k < i_at_border_hit + (i - i_at_border_hit) / 2; k++) {
-								std::cout << "\x1b[B\x1b[2D\xdb\xdb";
-							}
-						}
-
-					}
-					else {
-						//std::cout << "\x1b[2B";
-						for (uint8_t k = 1; k < i_at_border_hit + (i - i_at_border_hit) / 2; k++) {
-							std::cout << "\x1b[B";
-						}
-					}
-
-					//left --> right
-					if (!(border & 8)) {
-						std::cout << "\x1b[4D\xdb\xdb";
-						std::cout << "\x1b[4D\xdb\xdb";
-						for (uint8_t k = 0; k < i; k++) {
-							std::cout << "\x1b[4D\xdb\xdb";
-						}
-					}
-					else {
-						std::cout << "\x1b[4D";
-						for (uint8_t k = 1; k < i_at_border_hit + (i - i_at_border_hit) / 2; k++) {
-							std::cout << "\x1b[2D";
-						}
-					}
-
-					//bottom --> top
-					if (!(border & 1)) {
-						std::cout << "\x1b[A\x1b[2D\xdb\xdb";
-						std::cout << "\x1b[A\x1b[2D\xdb\xdb";
-						for (uint8_t k = 0; k < i; k++) {
-							std::cout << "\x1b[A\x1b[2D\xdb\xdb";
-						}
-					}
-					else {
-						std::cout << "\x1b[2A";
-						for (uint8_t k = 1; k < i_at_border_hit + (i - i_at_border_hit) / 2; k++) {
-							std::cout << "\x1b[A";
-						}
-					}
-					Sleep(500);
-				}*/
 				for (uint8_t i = 1; i < 6; i += 2) { //takes 4 + 1 cylces (<6) to fill the cell with the gold
 
 					//some really fucked up shit that just miraculously works (sometimes) ¯\_(ツ)_/¯ v0.5
@@ -1741,7 +1645,7 @@ void wumpus::redraw_map() {
 //restart checker function
 bool wumpus::check_for_restart() {
 	//wait some time in order to not quit instantly
-	Sleep(500);
+	Sleep(100);
 
 	while (!(GetAsyncKeyState(VK_ESCAPE) & 0x8000)) {
 		if (GetKeyState(VK_RETURN) & 0x8000) {
